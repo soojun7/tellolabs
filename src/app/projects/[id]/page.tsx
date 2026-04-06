@@ -43,6 +43,12 @@ export default function ProjectDetailPage() {
         router.replace("/projects");
         return;
       }
+      if (p.scenes.length === 0) {
+        sessionStorage.setItem("sourcebox-project-id", p.id);
+        sessionStorage.setItem("sourcebox-new-project-name", p.title);
+        router.replace("/new");
+        return;
+      }
       setProject(p);
     })();
   }, [projectId, router]);

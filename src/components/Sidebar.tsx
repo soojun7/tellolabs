@@ -50,6 +50,7 @@ export default function Sidebar() {
   const [showNewModal, setShowNewModal] = useState(false);
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [creating, setCreating] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [credits, setCredits] = useState<number | null>(null);
@@ -86,7 +87,8 @@ export default function Sidebar() {
   }, []);
 
   const handleNewProjectConfirm = useCallback(async () => {
-    if (!newProjectName.trim()) return;
+    if (!newProjectName.trim() || creating) return;
+    setCreating(true);
     try {
       const proj = await saveProject({
         title: newProjectName.trim(),
@@ -103,8 +105,10 @@ export default function Sidebar() {
       router.push("/new");
     } catch (err: unknown) {
       alert((err as Error).message || "프로젝트 생성 실패");
+    } finally {
+      setCreating(false);
     }
-  }, [newProjectName, router]);
+  }, [newProjectName, router, creating]);
 
   const tryNewProject = async () => {
     if ((await getProjects()).length >= MAX_PROJECTS) {
@@ -343,7 +347,7 @@ export default function Sidebar() {
           className="w-full px-4 py-3 text-sm bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent text-foreground placeholder:text-text-secondary/50 mb-4" />
         <div className="flex items-center gap-2 justify-end">
           <button onClick={() => setShowNewModal(false)} className="px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-foreground rounded-xl hover:bg-surface-hover transition-colors">취소</button>
-          <button onClick={handleNewProjectConfirm} disabled={!newProjectName.trim()} className="px-6 py-2.5 text-sm font-semibold bg-accent text-white rounded-xl hover:bg-accent/90 transition-colors disabled:opacity-40">시작하기</button>
+          <button onClick={handleNewProjectConfirm} disabled={!newProjectName.trim() || creating} className="px-6 py-2.5 text-sm font-semibold bg-accent text-white rounded-xl hover:bg-accent/90 transition-colors disabled:opacity-40">{creating ? "생성 중..." : "시작하기"}</button>
         </div>
       </div>
     </div>,

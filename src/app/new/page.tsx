@@ -83,6 +83,30 @@ const DEFAULT_GUIDELINES = `첨부한 스크립트와 구성은 비슷하지만 
 스크립트 흐름은 "첫째, 둘째" 식이 아닌 자연스럽게 읽히도록.
 스크립트 외 어떤 것도 출력 금지 (제목, 코드블록, 아티팩트 태그 등 절대 금지).`;
 
+async function runConcurrent<T>(
+  fns: (() => Promise<T>)[],
+  limit: number,
+): Promise<PromiseSettledResult<T>[]> {
+  const results: PromiseSettledResult<T>[] = new Array(fns.length);
+  let idx = 0;
+  async function worker() {
+    while (idx < fns.length) {
+      const i = idx++;
+      try {
+        results[i] = { status: "fulfilled", value: await fns[i]() };
+      } catch (e) {
+        results[i] = { status: "rejected", reason: e };
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, fns.length) }, () => worker()));
+  return results;
+}
+
+const IMG_CONCURRENCY = 5;
+const TTS_CONCURRENCY = 8;
+const VIDEO_CONCURRENCY = 3;
+
 export default function NewProjectPage() {
   const router = useRouter();
 
@@ -692,12 +716,12 @@ export default function NewProjectPage() {
     const ttsTotal = scenes.length;
     setGenProgress({ step: "이미지 + 나레이션 동시 생성 중...", done: 0, total: imgTotal + ttsTotal });
 
-    const imageTasks = scenes.map((scene, i) => {
-      if (!needsImage[i]) return Promise.resolve("");
+    const imgFns: (() => Promise<string>)[] = scenes.map((scene, i) => {
+      if (!needsImage[i]) return async () => "";
       const basePrompt =
         imagePrompts[i] ||
         "A high quality wide shot of a clean, well-lit scene with natural environment details and calm atmosphere. High quality, soft lighting, no text, no watermark, no typography, no letters";
-      return (async () => {
+      return async () => {
         try {
           const res = await fetch("/api/generate-image", {
             method: "POST",
@@ -721,13 +745,15 @@ export default function NewProjectPage() {
           return data.imageUrl ?? "";
         } catch {
           return "";
+        } finally {
+          setGenProgress((prev) => ({ ...prev, done: prev.done + 1 }));
         }
-      })();
+      };
     });
 
     const ttsEndpoint = settings.language === "ja" ? "/api/tts-voicevox" : "/api/tts";
-    const ttsTasks = scenes.map((scene) =>
-      (async () => {
+    const ttsFns: (() => Promise<{ audioUrl: string; duration: number }>)[] = scenes.map((scene) => {
+      return async () => {
         try {
           const body = settings.language === "ja"
             ? { text: scene.line, speakerId: settings.voiceId ? Number(settings.voiceId) : undefined }
@@ -741,27 +767,15 @@ export default function NewProjectPage() {
           return await res.json();
         } catch {
           return { audioUrl: "", duration: 0 };
+        } finally {
+          setGenProgress((prev) => ({ ...prev, done: prev.done + 1 }));
         }
-      })(),
-    );
+      };
+    });
 
     const [imgSettled, ttsSettled] = await Promise.all([
-      Promise.allSettled(
-        imageTasks.map(async (task, i) => {
-          const url = await task;
-          if (needsImage[i]) {
-            setGenProgress((prev) => ({ ...prev, done: prev.done + 1 }));
-          }
-          return url;
-        }),
-      ),
-      Promise.allSettled(
-        ttsTasks.map(async (task) => {
-          const result = await task;
-          setGenProgress((prev) => ({ ...prev, done: prev.done + 1 }));
-          return result;
-        }),
-      ),
+      runConcurrent(imgFns, IMG_CONCURRENCY),
+      runConcurrent(ttsFns, TTS_CONCURRENCY),
     ]);
 
     const imageUrls = imgSettled.map((r) => (r.status === "fulfilled" ? r.value : ""));
@@ -783,9 +797,9 @@ export default function NewProjectPage() {
       if (videoTotal > 0) {
         setGenProgress({ step: "AI 영상화 중...", done: 0, total: videoTotal });
 
-        const videoTasks = finalScenes.map((scene, i) => {
-          if (!videoTargets[i]) return Promise.resolve("");
-          return (async () => {
+        const videoFns: (() => Promise<string>)[] = finalScenes.map((scene, i) => {
+          if (!videoTargets[i]) return async () => "";
+          return async () => {
             try {
               const imgSrc = scene.mainImage.startsWith("http")
                 ? scene.mainImage
@@ -804,19 +818,13 @@ export default function NewProjectPage() {
               return data.videoUrl ?? "";
             } catch {
               return "";
-            }
-          })();
-        });
-
-        const videoSettled = await Promise.allSettled(
-          videoTasks.map(async (task, i) => {
-            const url = await task;
-            if (videoTargets[i]) {
+            } finally {
               setGenProgress((prev) => ({ ...prev, done: prev.done + 1 }));
             }
-            return url;
-          }),
-        );
+          };
+        });
+
+        const videoSettled = await runConcurrent(videoFns, VIDEO_CONCURRENCY);
 
         finalScenes = finalScenes.map((s, i) => {
           const videoUrl = videoSettled[i].status === "fulfilled" ? videoSettled[i].value : "";

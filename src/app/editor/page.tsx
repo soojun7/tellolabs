@@ -375,34 +375,43 @@ function EditorPage() {
     if (targets.length === 0) return;
     setBatchVideoProgress({ done: 0, total: targets.length });
 
-    const tasks = targets.map((idx) =>
-      (async () => {
-        const scene = scenes[idx];
-        const imgSrc = scene.mainImage.startsWith("http") ? scene.mainImage : `${window.location.origin}${scene.mainImage}`;
-        setGeneratingVideoIdx((prev) => new Set(prev).add(idx));
-        try {
-          const res = await fetch("/api/generate-video-clip", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              imageUrl: imgSrc,
-              prompt: scene.imagePrompt || "cinematic camera movement, smooth animation",
-              durationSeconds: scene.audioDuration || 6,
-            }),
-          });
-          if (!res.ok) return null;
-          const data = await res.json();
-          return { idx, videoUrl: data.videoUrl as string };
-        } catch {
-          return null;
-        } finally {
-          setGeneratingVideoIdx((prev) => { const s = new Set(prev); s.delete(idx); return s; });
-          setBatchVideoProgress((prev) => prev ? { ...prev, done: prev.done + 1 } : null);
-        }
-      })(),
-    );
+    const fns = targets.map((idx) => async () => {
+      const scene = scenes[idx];
+      const imgSrc = scene.mainImage.startsWith("http") ? scene.mainImage : `${window.location.origin}${scene.mainImage}`;
+      setGeneratingVideoIdx((prev) => new Set(prev).add(idx));
+      try {
+        const res = await fetch("/api/generate-video-clip", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            imageUrl: imgSrc,
+            prompt: scene.imagePrompt || "cinematic camera movement, smooth animation",
+            durationSeconds: scene.audioDuration || 6,
+          }),
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return { idx, videoUrl: data.videoUrl as string };
+      } catch {
+        return null;
+      } finally {
+        setGeneratingVideoIdx((prev) => { const s = new Set(prev); s.delete(idx); return s; });
+        setBatchVideoProgress((prev) => prev ? { ...prev, done: prev.done + 1 } : null);
+      }
+    });
 
-    const results = await Promise.allSettled(tasks);
+    const limit = 3;
+    const results: PromiseSettledResult<{ idx: number; videoUrl: string } | null>[] = new Array(fns.length);
+    let nextIdx = 0;
+    async function worker() {
+      while (nextIdx < fns.length) {
+        const i = nextIdx++;
+        try { results[i] = { status: "fulfilled", value: await fns[i]() }; }
+        catch (e) { results[i] = { status: "rejected", reason: e }; }
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(limit, fns.length) }, () => worker()));
+
     setScenes((prev) => {
       const next = [...prev];
       for (const r of results) {

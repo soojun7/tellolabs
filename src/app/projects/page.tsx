@@ -37,6 +37,12 @@ export default function ProjectsPage() {
   const handleOpen = (proj: Project) => {
     if (editingId) return;
     if (checked.size > 0) return;
+    if (proj.scenes.length === 0) {
+      sessionStorage.setItem("sourcebox-project-id", proj.id);
+      sessionStorage.setItem("sourcebox-new-project-name", proj.title);
+      router.push("/new");
+      return;
+    }
     router.push(`/projects/${proj.id}`);
   };
 
@@ -202,13 +208,25 @@ export default function ProjectsPage() {
                           {proj.title}
                         </h3>
                       )}
-                      <p className="text-sm text-text-secondary line-clamp-2 mb-2">
-                        {proj.script.slice(0, 150)}
-                      </p>
+                      {proj.scenes.length === 0 ? (
+                        <p className="text-sm text-text-secondary/50 mb-2 italic">
+                          아직 대본이 입력되지 않았습니다
+                        </p>
+                      ) : (
+                        <p className="text-sm text-text-secondary line-clamp-2 mb-2">
+                          {proj.script.slice(0, 150)}
+                        </p>
+                      )}
                       <div className="flex items-center gap-3 text-xs text-text-secondary/60">
-                        <span className="flex items-center gap-1">
-                          <Film size={11} /> {proj.scenes.length}개 씬
-                        </span>
+                        {proj.scenes.length === 0 ? (
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] bg-amber-500/10 text-amber-600 font-semibold">
+                            생성중
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            <Film size={11} /> {proj.scenes.length}개 씬
+                          </span>
+                        )}
                         <span className="flex items-center gap-1">
                           <Clock size={11} /> {formatDate(proj.updatedAt)}
                         </span>

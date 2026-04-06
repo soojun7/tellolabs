@@ -79,19 +79,34 @@ export async function POST(req: NextRequest) {
     const sfxPrompt = prompt || MOTION_SFX_MAP[motionStyle] || "cinematic whoosh transition sound effect";
     const duration = Math.min(Math.max(durationSeconds || 2, 0.5), 10);
 
-    const res = await fetch("https://api.elevenlabs.io/v1/sound-generation", {
-      method: "POST",
-      headers: {
-        "xi-api-key": ELEVENLABS_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        text: sfxPrompt,
-        duration_seconds: duration,
-        prompt_influence: 0.5,
-      }),
-    });
+    const MAX_RETRIES = 3;
+    let lastRes: Response | null = null;
 
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      lastRes = await fetch("https://api.elevenlabs.io/v1/sound-generation", {
+        method: "POST",
+        headers: {
+          "xi-api-key": ELEVENLABS_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: sfxPrompt,
+          duration_seconds: duration,
+          prompt_influence: 0.5,
+        }),
+      });
+
+      if (lastRes.ok) break;
+      if (lastRes.status === 429 && attempt < MAX_RETRIES) {
+        const delay = 1000 * (attempt + 1);
+        console.warn(`ElevenLabs SFX 429 — retry ${attempt + 1}/${MAX_RETRIES} after ${delay}ms`);
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+      break;
+    }
+
+    const res = lastRes!;
     if (!res.ok) {
       const errText = await res.text();
       console.error("ElevenLabs SFX error:", res.status, errText);

@@ -39,6 +39,7 @@ export default function Home() {
   const [showNewModal, setShowNewModal] = useState(false);
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [creating, setCreating] = useState(false);
 
   const handleNewProject = useCallback(async () => {
     if ((await getProjects()).length >= MAX_PROJECTS) {
@@ -50,7 +51,8 @@ export default function Home() {
   }, []);
 
   const handleNewProjectConfirm = useCallback(async () => {
-    if (!newProjectName.trim()) return;
+    if (!newProjectName.trim() || creating) return;
+    setCreating(true);
     try {
       const proj = await saveProject({
         title: newProjectName.trim(),
@@ -65,8 +67,10 @@ export default function Home() {
       router.push("/new");
     } catch (err: unknown) {
       alert((err as Error).message || "프로젝트 생성 실패");
+    } finally {
+      setCreating(false);
     }
-  }, [newProjectName, router]);
+  }, [newProjectName, router, creating]);
 
   useEffect(() => {
     (async () => {
@@ -80,6 +84,12 @@ export default function Home() {
 
   const handleOpenProject = (proj: Project) => {
     if (editingId) return;
+    if (proj.scenes.length === 0) {
+      sessionStorage.setItem("sourcebox-project-id", proj.id);
+      sessionStorage.setItem("sourcebox-new-project-name", proj.title);
+      router.push("/new");
+      return;
+    }
     router.push(`/projects/${proj.id}`);
   };
 
@@ -228,19 +238,33 @@ export default function Home() {
                         {proj.title}
                       </h3>
                     )}
-                    <p className="text-xs text-text-secondary line-clamp-2 mb-3 leading-relaxed">
-                      {proj.script.slice(0, 100)}
-                    </p>
+                    {proj.scenes.length === 0 ? (
+                      <p className="text-xs text-text-secondary/50 mb-3 leading-relaxed italic">
+                        아직 대본이 입력되지 않았습니다
+                      </p>
+                    ) : (
+                      <p className="text-xs text-text-secondary line-clamp-2 mb-3 leading-relaxed">
+                        {proj.script.slice(0, 100)}
+                      </p>
+                    )}
                     <div className="flex items-center gap-2">
-                      <span className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] bg-accent/10 text-accent font-medium">
-                        <Clapperboard size={10} /> {motionCount(proj)}
-                      </span>
-                      <span className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] bg-blue-50 text-blue-400 font-medium">
-                        <ImageIcon size={10} /> {imageCount(proj)}
-                      </span>
-                      <span className="text-[10px] text-text-secondary/40">
-                        {proj.scenes.length}개 씬
-                      </span>
+                      {proj.scenes.length === 0 ? (
+                        <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] bg-amber-500/10 text-amber-600 font-semibold">
+                          생성중
+                        </span>
+                      ) : (
+                        <>
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] bg-accent/10 text-accent font-medium">
+                            <Clapperboard size={10} /> {motionCount(proj)}
+                          </span>
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] bg-blue-50 text-blue-400 font-medium">
+                            <ImageIcon size={10} /> {imageCount(proj)}
+                          </span>
+                          <span className="text-[10px] text-text-secondary/40">
+                            {proj.scenes.length}개 씬
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -283,10 +307,10 @@ export default function Home() {
               </button>
               <button
                 onClick={handleNewProjectConfirm}
-                disabled={!newProjectName.trim()}
+                disabled={!newProjectName.trim() || creating}
                 className="px-6 py-2.5 text-sm font-semibold bg-accent text-white rounded-xl hover:bg-accent/90 transition-colors disabled:opacity-40"
               >
-                시작하기
+                {creating ? "생성 중..." : "시작하기"}
               </button>
             </div>
           </div>
