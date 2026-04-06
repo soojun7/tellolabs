@@ -171,3 +171,53 @@ export function clearHistory(): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(HISTORY_KEY, JSON.stringify([]));
 }
+
+const MIGRATED_KEY = "sourcebox-migrated-to-db";
+const OLD_PROJECTS_KEY = "sourcebox-projects";
+
+export async function migrateLocalStorageToDb(): Promise<number> {
+  if (typeof window === "undefined") return 0;
+  if (localStorage.getItem(MIGRATED_KEY)) return 0;
+
+  const raw = localStorage.getItem(OLD_PROJECTS_KEY);
+  if (!raw) {
+    localStorage.setItem(MIGRATED_KEY, "1");
+    return 0;
+  }
+
+  let oldProjects: Project[];
+  try {
+    oldProjects = JSON.parse(raw);
+  } catch {
+    localStorage.setItem(MIGRATED_KEY, "1");
+    return 0;
+  }
+
+  if (!Array.isArray(oldProjects) || oldProjects.length === 0) {
+    localStorage.setItem(MIGRATED_KEY, "1");
+    return 0;
+  }
+
+  let imported = 0;
+  for (const p of oldProjects) {
+    try {
+      await saveProject({
+        title: p.title,
+        script: p.script,
+        scenes: p.scenes,
+        saved: p.saved,
+        renderUrl: p.renderUrl,
+        thumbnailUrl: p.thumbnailUrl,
+        thumbnails: p.thumbnails,
+        style: p.style,
+      });
+      imported++;
+    } catch {
+      break;
+    }
+  }
+
+  localStorage.setItem(MIGRATED_KEY, "1");
+  localStorage.removeItem(OLD_PROJECTS_KEY);
+  return imported;
+}

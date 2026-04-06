@@ -16,7 +16,7 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
-import { getProjects, deleteProject, renameProject, MAX_PROJECTS, type Project } from "@/lib/projectStore";
+import { getProjects, deleteProject, renameProject, MAX_PROJECTS, migrateLocalStorageToDb, type Project } from "@/lib/projectStore";
 
 function formatDate(ts: number) {
   const d = new Date(ts);
@@ -59,7 +59,11 @@ export default function Home() {
   }, [newProjectName, router]);
 
   useEffect(() => {
-    getProjects().then((all) => setRecentProjects(all.slice(0, 6)));
+    (async () => {
+      await migrateLocalStorageToDb();
+      const all = await getProjects();
+      setRecentProjects(all.slice(0, 6));
+    })();
   }, []);
 
   const reload = () => getProjects().then((all) => setRecentProjects(all.slice(0, 6)));
