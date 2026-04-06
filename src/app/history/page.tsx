@@ -27,8 +27,8 @@ export default function HistoryPage() {
     setHistory(getHistory());
   }, []);
 
-  const handleOpenProject = (projectId: string) => {
-    const proj = getProject(projectId);
+  const handleOpenProject = async (projectId: string) => {
+    const proj = await getProject(projectId);
     if (!proj) {
       alert("해당 프로젝트를 찾을 수 없습니다.");
       return;
