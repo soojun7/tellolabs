@@ -120,15 +120,16 @@ export async function POST(req: NextRequest) {
     try {
       await execFileAsync("ffmpeg", [
         "-y", "-i", rawPath,
-        "-r", String(TARGET_FPS),
+        "-vf", `fps=${TARGET_FPS},scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080`,
         "-vsync", "cfr",
         "-c:v", "libx264",
         "-preset", "fast",
         "-crf", "18",
         "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",
         "-an",
         filePath,
-      ], { timeout: 60000 });
+      ], { timeout: 120000 });
       try { await unlink(rawPath); } catch { /* ignore */ }
     } catch (err) {
       console.error("FFmpeg re-encode failed, using original:", err);

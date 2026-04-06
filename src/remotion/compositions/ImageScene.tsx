@@ -2,7 +2,6 @@ import React from "react";
 import {
   Img,
   Audio,
-  Video,
   OffthreadVideo,
   useCurrentFrame,
   useVideoConfig,
@@ -44,8 +43,6 @@ export const ImageScene: React.FC<ImageSceneProps> = ({ scene }) => {
 
   const narrationText = scene.narration || scene.line;
 
-  const VideoComp = typeof window === "undefined" ? OffthreadVideo : Video;
-
   return (
     <div
       style={{
@@ -58,7 +55,7 @@ export const ImageScene: React.FC<ImageSceneProps> = ({ scene }) => {
       }}
     >
       {hasVideo ? (
-        <VideoComp
+        <OffthreadVideo
           src={scene.videoClipUrl!}
           style={{
             position: "absolute",
@@ -68,8 +65,7 @@ export const ImageScene: React.FC<ImageSceneProps> = ({ scene }) => {
           }}
           muted
           loop
-          playbackRate={1}
-          {...(typeof window === "undefined" ? { toneMapped: false } : {})}
+          toneMapped={false}
         />
       ) : scene.mainImage ? (
         <Img
