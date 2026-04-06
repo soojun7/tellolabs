@@ -38,11 +38,11 @@ services:
       - key: SERPAPI_API_KEY
         sync: false
       - key: NEXT_PUBLIC_MAPBOX_TOKEN
-        sync: false
+        value: pk.eyJ1Ijoia2ltc29vanVuIiwiYSI6ImNtbm12dnpwdjA1NjQyb3NpdzkwaTdmYmsifQ.Pr0CiHLxv0LH46Lt8FLhuw
       - key: REMOTION_MAPBOX_TOKEN
-        sync: false
+        value: pk.eyJ1Ijoia2ltc29vanVuIiwiYSI6ImNtbm12dnpwdjA1NjQyb3NpdzkwaTdmYmsifQ.Pr0CiHLxv0LH46Lt8FLhuw
       - key: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-        sync: false
+        value: pk_test_c3RpcnJlZC1jaG93LTkwLmNsZXJrLmFjY291bnRzLmRldiQ
       - key: CLERK_SECRET_KEY
         sync: false
       - key: NEXT_PUBLIC_CLERK_SIGN_IN_URL
