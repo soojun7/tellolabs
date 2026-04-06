@@ -45,12 +45,18 @@ services:
         value: pk_test_c3RpcnJlZC1jaG93LTkwLmNsZXJrLmFjY291bnRzLmRldiQ
       - key: CLERK_SECRET_KEY
         sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        value: tellolabs
+      - key: R2_PUBLIC_URL
+        sync: false
       - key: NEXT_PUBLIC_CLERK_SIGN_IN_URL
         value: /login
       - key: NEXT_PUBLIC_CLERK_SIGN_UP_URL
         value: /register
-    disk:
-      name: tellolabs-media
-      mountPath: /app/public
-      sizeGB: 10
     healthCheckPath: /

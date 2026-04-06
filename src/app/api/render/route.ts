@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { spawn } from "child_process";
 import path from "path";
-import { fileURLToPath } from "url";
+import { mkdir } from "fs/promises";
+import { uploadFileToR2, isR2Configured } from "@/lib/r2";
 
 const ROOT = path.resolve(process.cwd());
 
@@ -15,6 +16,9 @@ export async function POST(req: NextRequest) {
   const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   jobs.set(jobId, { progress: 0, done: false });
+
+  const renderDir = path.join(ROOT, "public", "renders");
+  await mkdir(renderDir, { recursive: true });
 
   const scriptPath = path.resolve(ROOT, "scripts", "render.mjs");
 
@@ -57,7 +61,7 @@ export async function POST(req: NextRequest) {
     console.error(`[render:${jobId}]`, data.toString());
   });
 
-  child.on("close", (code) => {
+  child.on("close", async (code) => {
     const job = jobs.get(jobId);
     if (buffer.trim()) {
       try {
@@ -79,6 +83,20 @@ export async function POST(req: NextRequest) {
         job.error = `Process exited with code ${code}`;
       }
     }
+
+    if (job?.url && !job.error && isR2Configured()) {
+      try {
+        const localFile = path.join(ROOT, "public", job.url);
+        const key = job.url.startsWith("/") ? job.url.slice(1) : job.url;
+        const r2Url = await uploadFileToR2(key, localFile);
+        job.url = r2Url;
+        const { unlink } = await import("fs/promises");
+        try { await unlink(localFile); } catch { /* ignore */ }
+      } catch (err) {
+        console.error(`[render:${jobId}] R2 upload failed:`, err);
+      }
+    }
+
     setTimeout(() => jobs.delete(jobId), 5 * 60 * 1000);
   });
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
+import { uploadToR2, isR2Configured } from "@/lib/r2";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,16 +19,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unsupported format" }, { status: 400 });
     }
 
-    const dir = join(process.cwd(), "public", "uploads");
-    await mkdir(dir, { recursive: true });
-
     const filename = `${randomUUID()}.${ext}`;
-    const filepath = join(dir, filename);
-
     const buffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(filepath, buffer);
 
-    return NextResponse.json({ url: `/uploads/${filename}` });
+    let url: string;
+    if (isR2Configured()) {
+      url = await uploadToR2(`uploads/${filename}`, buffer);
+    } else {
+      const dir = join(process.cwd(), "public", "uploads");
+      await mkdir(dir, { recursive: true });
+      await writeFile(join(dir, filename), buffer);
+      url = `/uploads/${filename}`;
+    }
+
+    return NextResponse.json({ url });
   } catch (err: unknown) {
     console.error("upload error:", err);
     return NextResponse.json(

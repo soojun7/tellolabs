@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir, readFile, unlink, stat } from "fs/promises";
 import path from "path";
+import os from "os";
 import { randomUUID } from "crypto";
 import { execFile } from "child_process";
 import { promisify } from "util";
+import { uploadFileToR2, isR2Configured } from "@/lib/r2";
 
 const execFileAsync = promisify(execFile);
 
@@ -122,13 +124,13 @@ export async function POST(req: NextRequest) {
 
     const audioBuffer = Buffer.from(await synthRes.arrayBuffer());
 
-    const audioDir = path.join(process.cwd(), "public", "audio");
-    await mkdir(audioDir, { recursive: true });
+    const tmpDir = path.join(os.tmpdir(), "tello-audio");
+    await mkdir(tmpDir, { recursive: true });
 
     const id = randomUUID();
-    const wavPath = path.join(audioDir, `tts-${id}.wav`);
+    const wavPath = path.join(tmpDir, `tts-${id}.wav`);
     const mp3Filename = `tts-${id}.mp3`;
-    const mp3Path = path.join(audioDir, mp3Filename);
+    const mp3Path = path.join(tmpDir, mp3Filename);
 
     await writeFile(wavPath, audioBuffer);
     await trimAndSqueeze(wavPath);
@@ -138,11 +140,20 @@ export async function POST(req: NextRequest) {
 
     const duration = await getActualDuration(mp3Path);
 
-    return NextResponse.json({
-      audioUrl: `/audio/${mp3Filename}`,
-      duration,
-      filename: mp3Filename,
-    });
+    let audioUrl: string;
+    if (isR2Configured()) {
+      audioUrl = await uploadFileToR2(`audio/${mp3Filename}`, mp3Path);
+      try { await unlink(mp3Path); } catch { /* ignore */ }
+    } else {
+      const localDir = path.join(process.cwd(), "public", "audio");
+      await mkdir(localDir, { recursive: true });
+      const buf = await readFile(mp3Path);
+      await writeFile(path.join(localDir, mp3Filename), buf);
+      try { await unlink(mp3Path); } catch { /* ignore */ }
+      audioUrl = `/audio/${mp3Filename}`;
+    }
+
+    return NextResponse.json({ audioUrl, duration, filename: mp3Filename });
   } catch (err: unknown) {
     console.error("VOICEVOX TTS error:", err);
     return NextResponse.json(

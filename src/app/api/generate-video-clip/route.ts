@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir, unlink } from "fs/promises";
 import path from "path";
+import os from "os";
 import { randomUUID } from "crypto";
 import { execFile } from "child_process";
 import { promisify } from "util";
+import { uploadFileToR2, isR2Configured } from "@/lib/r2";
 
 const execFileAsync = promisify(execFile);
 
@@ -107,15 +109,15 @@ export async function POST(req: NextRequest) {
     }
     const videoBuf = Buffer.from(await videoResp.arrayBuffer());
 
-    const videoDir = path.join(process.cwd(), "public", "videos");
-    await mkdir(videoDir, { recursive: true });
+    const tmpDir = path.join(os.tmpdir(), "tello-video");
+    await mkdir(tmpDir, { recursive: true });
 
     const rawFilename = `clip-raw-${randomUUID()}.mp4`;
-    const rawPath = path.join(videoDir, rawFilename);
+    const rawPath = path.join(tmpDir, rawFilename);
     await writeFile(rawPath, videoBuf);
 
     const filename = `clip-${randomUUID()}.mp4`;
-    const filePath = path.join(videoDir, filename);
+    const filePath = path.join(tmpDir, filename);
 
     try {
       await execFileAsync("ffmpeg", [
@@ -137,11 +139,19 @@ export async function POST(req: NextRequest) {
       await rename(rawPath, filePath);
     }
 
-    return NextResponse.json({
-      videoUrl: `/videos/${filename}`,
-      duration: snappedDur,
-      predictionId,
-    });
+    let videoUrl: string;
+    if (isR2Configured()) {
+      videoUrl = await uploadFileToR2(`videos/${filename}`, filePath);
+      try { await unlink(filePath); } catch { /* ignore */ }
+    } else {
+      const localDir = path.join(process.cwd(), "public", "videos");
+      await mkdir(localDir, { recursive: true });
+      const { rename } = await import("fs/promises");
+      await rename(filePath, path.join(localDir, filename));
+      videoUrl = `/videos/${filename}`;
+    }
+
+    return NextResponse.json({ videoUrl, duration: snappedDur, predictionId });
   } catch (err: unknown) {
     console.error("WaveSpeed error:", err);
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

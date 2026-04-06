@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir, readFile, unlink, stat } from "fs/promises";
 import path from "path";
+import os from "os";
 import { randomUUID } from "crypto";
 import { execFile } from "child_process";
 import { promisify } from "util";
+import { uploadFileToR2, isR2Configured } from "@/lib/r2";
 
 const execFileAsync = promisify(execFile);
 
@@ -107,22 +109,31 @@ export async function POST(req: NextRequest) {
 
     const audioBuffer = Buffer.from(await res.arrayBuffer());
 
-    const audioDir = path.join(process.cwd(), "public", "audio");
-    await mkdir(audioDir, { recursive: true });
+    const tmpDir = path.join(os.tmpdir(), "tello-audio");
+    await mkdir(tmpDir, { recursive: true });
 
     const filename = `tts-${randomUUID()}.mp3`;
-    const filePath = path.join(audioDir, filename);
+    const filePath = path.join(tmpDir, filename);
     await writeFile(filePath, audioBuffer);
 
     await trimAndSqueeze(filePath);
 
     const duration = await getActualDuration(filePath);
 
-    return NextResponse.json({
-      audioUrl: `/audio/${filename}`,
-      duration,
-      filename,
-    });
+    let audioUrl: string;
+    if (isR2Configured()) {
+      audioUrl = await uploadFileToR2(`audio/${filename}`, filePath);
+      try { await unlink(filePath); } catch { /* ignore */ }
+    } else {
+      const localDir = path.join(process.cwd(), "public", "audio");
+      await mkdir(localDir, { recursive: true });
+      const buf = await readFile(filePath);
+      await writeFile(path.join(localDir, filename), buf);
+      try { await unlink(filePath); } catch { /* ignore */ }
+      audioUrl = `/audio/${filename}`;
+    }
+
+    return NextResponse.json({ audioUrl, duration, filename });
   } catch (err: unknown) {
     console.error("TTS error:", err);
     return NextResponse.json(
