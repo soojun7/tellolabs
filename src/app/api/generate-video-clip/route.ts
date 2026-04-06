@@ -139,19 +139,19 @@ export async function POST(req: NextRequest) {
       await rename(rawPath, filePath);
     }
 
-    let videoUrl: string;
+    let resultUrl: string;
     if (isR2Configured()) {
-      videoUrl = await uploadFileToR2(`videos/${filename}`, filePath);
+      resultUrl = await uploadFileToR2(`videos/${filename}`, filePath);
       try { await unlink(filePath); } catch { /* ignore */ }
     } else {
       const localDir = path.join(process.cwd(), "public", "videos");
       await mkdir(localDir, { recursive: true });
       const { rename } = await import("fs/promises");
       await rename(filePath, path.join(localDir, filename));
-      videoUrl = `/videos/${filename}`;
+      resultUrl = `/videos/${filename}`;
     }
 
-    return NextResponse.json({ videoUrl, duration: snappedDur, predictionId });
+    return NextResponse.json({ videoUrl: resultUrl, duration: snappedDur, predictionId });
   } catch (err: unknown) {
     console.error("WaveSpeed error:", err);
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
