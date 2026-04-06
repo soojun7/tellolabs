@@ -118,11 +118,11 @@ function EditorPage() {
   const [isSaved, setIsSaved] = useState(false);
   const [mobileTab, setMobileTab] = useState<"player" | "scenes" | "settings">("player");
 
-  const handleSaveProject = useCallback(() => {
+  const handleSaveProject = useCallback(async () => {
     if (scenes.length === 0) return;
     const title = scenes[0]?.line?.slice(0, 40) || "무제 프로젝트";
     const script = scenes.map((s) => s.line).join("\n");
-    const proj = saveProject({
+    const proj = await saveProject({
       id: projectId ?? undefined,
       title,
       script,
@@ -150,61 +150,63 @@ function EditorPage() {
     return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
   }, [scenes, projectId, handleSaveProject]);
 
-  const handleToggleSaved = useCallback(() => {
+  const handleToggleSaved = useCallback(async () => {
     if (projectId) {
-      const newState = toggleSaved(projectId);
+      const newState = await toggleSaved(projectId);
       setIsSaved(newState);
     } else {
-      handleSaveProject();
+      await handleSaveProject();
       if (projectId) {
-        const newState = toggleSaved(projectId);
+        const newState = await toggleSaved(projectId);
         setIsSaved(newState);
       }
     }
   }, [projectId, handleSaveProject]);
 
   useEffect(() => {
-    const storedId = sessionStorage.getItem("sourcebox-project-id");
-    if (storedId) {
-      setProjectId(storedId);
-      const proj = getProject(storedId);
-      if (proj) {
-        setIsSaved(proj.saved);
+    (async () => {
+      const storedId = sessionStorage.getItem("sourcebox-project-id");
+      if (storedId) {
+        setProjectId(storedId);
+        const proj = await getProject(storedId);
+        if (proj) {
+          setIsSaved(proj.saved);
 
-        const hasProjectStyle = proj.style && Object.values(proj.style).some((v) => v !== undefined && v !== "" && v !== null);
+          const hasProjectStyle = proj.style && Object.values(proj.style).some((v) => v !== undefined && v !== "" && v !== null);
 
-        if (hasProjectStyle) {
-          console.log("[editor] Loaded style from project:", proj.style);
-          setProjectStyle(proj.style!);
-        } else {
-          const genPrefs = loadPreferences().generation;
-          if (genPrefs) {
-            const fakeSettings = {
-              artStyle: genPrefs.artStyle || "anime",
-              customArtStyle: genPrefs.customArtStyle || "",
-              imageModel: genPrefs.imageModel || "runware:101@1",
-            } as GenerationSettings;
-            const sp = buildStylePrompt(fakeSettings);
-            const hasAnyPref = genPrefs.imageModel || sp || genPrefs.customStyleImage || genPrefs.characterRefImage || genPrefs.styleDescription;
-            if (hasAnyPref) {
-              const recoveredStyle: ProjectStyle = {
-                imageModel: genPrefs.imageModel || undefined,
-                stylePrompt: sp || undefined,
-                styleImage: genPrefs.customStyleImage || undefined,
-                characterRefImage: genPrefs.characterRefImage || undefined,
-                characterDesc: genPrefs.characterDesc || undefined,
-                styleDescription: genPrefs.styleDescription || undefined,
-              };
-              console.log("[editor] Recovered style from prefs:", recoveredStyle);
-              setProjectStyle(recoveredStyle);
-              saveProject({ ...proj, style: recoveredStyle });
-            } else {
-              console.warn("[editor] No style found in project or prefs");
+          if (hasProjectStyle) {
+            console.log("[editor] Loaded style from project:", proj.style);
+            setProjectStyle(proj.style!);
+          } else {
+            const genPrefs = loadPreferences().generation;
+            if (genPrefs) {
+              const fakeSettings = {
+                artStyle: genPrefs.artStyle || "anime",
+                customArtStyle: genPrefs.customArtStyle || "",
+                imageModel: genPrefs.imageModel || "runware:101@1",
+              } as GenerationSettings;
+              const sp = buildStylePrompt(fakeSettings);
+              const hasAnyPref = genPrefs.imageModel || sp || genPrefs.customStyleImage || genPrefs.characterRefImage || genPrefs.styleDescription;
+              if (hasAnyPref) {
+                const recoveredStyle: ProjectStyle = {
+                  imageModel: genPrefs.imageModel || undefined,
+                  stylePrompt: sp || undefined,
+                  styleImage: genPrefs.customStyleImage || undefined,
+                  characterRefImage: genPrefs.characterRefImage || undefined,
+                  characterDesc: genPrefs.characterDesc || undefined,
+                  styleDescription: genPrefs.styleDescription || undefined,
+                };
+                console.log("[editor] Recovered style from prefs:", recoveredStyle);
+                setProjectStyle(recoveredStyle);
+                await saveProject({ ...proj, style: recoveredStyle });
+              } else {
+                console.warn("[editor] No style found in project or prefs");
+              }
             }
           }
         }
       }
-    }
+    })();
   }, []);
 
   useEffect(() => {
@@ -755,13 +757,19 @@ function EditorPage() {
 
     const storedId = sessionStorage.getItem("sourcebox-project-id");
     if (storedId) {
-      const proj = getProject(storedId);
-      if (proj?.scenes?.length) {
-        setScenes(applySubtitleDefaults(proj.scenes));
-        return;
-      }
+      getProject(storedId).then((proj) => {
+        if (proj?.scenes?.length) {
+          setScenes(applySubtitleDefaults(proj.scenes));
+          return;
+        }
+        loadFromSessionOrDefault();
+      });
+      return;
     }
 
+    loadFromSessionOrDefault();
+
+    function loadFromSessionOrDefault() {
     const stored = sessionStorage.getItem("sourcebox-scenes");
     if (stored) {
       try {
@@ -796,6 +804,7 @@ function EditorPage() {
         zoom: "in",
       },
     ]);
+    }
   }, [searchParams]);
 
   const jaAutoTranslated = useRef(false);
@@ -880,8 +889,8 @@ function EditorPage() {
             if (status.url) {
               setRenderUrl(status.url);
               if (projectId) {
-                const p = getProject(projectId);
-                if (p) saveProject({ ...p, renderUrl: status.url });
+                const p = await getProject(projectId);
+                if (p) await saveProject({ ...p, renderUrl: status.url });
               }
               const a = document.createElement("a");
               a.href = status.url;

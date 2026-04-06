@@ -31,7 +31,7 @@ export default function ProjectsPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setProjects(getProjects());
+    getProjects().then(setProjects);
   }, []);
 
   const handleOpen = (proj: Project) => {
@@ -40,24 +40,24 @@ export default function ProjectsPage() {
     router.push(`/projects/${proj.id}`);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm("이 프로젝트를 삭제하시겠습니까?")) return;
-    deleteProject(id);
+    await deleteProject(id);
     setChecked((prev) => { const next = new Set(prev); next.delete(id); return next; });
-    setProjects(getProjects());
+    setProjects(await getProjects());
   };
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = async () => {
     if (checked.size === 0) return;
     if (!confirm(`선택한 ${checked.size}개 프로젝트를 삭제하시겠습니까?`)) return;
-    checked.forEach((id) => deleteProject(id));
+    await Promise.all([...checked].map((id) => deleteProject(id)));
     setChecked(new Set());
-    setProjects(getProjects());
+    setProjects(await getProjects());
   };
 
-  const handleToggleSaved = (id: string) => {
-    toggleSaved(id);
-    setProjects(getProjects());
+  const handleToggleSaved = async (id: string) => {
+    await toggleSaved(id);
+    setProjects(await getProjects());
   };
 
   const startEditing = (proj: Project) => {
@@ -66,10 +66,10 @@ export default function ProjectsPage() {
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
-  const confirmRename = () => {
+  const confirmRename = async () => {
     if (editingId && editTitle.trim()) {
-      renameProject(editingId, editTitle.trim());
-      setProjects(getProjects());
+      await renameProject(editingId, editTitle.trim());
+      setProjects(await getProjects());
     }
     setEditingId(null);
   };

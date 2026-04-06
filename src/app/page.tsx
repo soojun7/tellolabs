@@ -40,8 +40,8 @@ export default function Home() {
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
 
-  const handleNewProject = useCallback(() => {
-    if (getProjects().length >= MAX_PROJECTS) {
+  const handleNewProject = useCallback(async () => {
+    if ((await getProjects()).length >= MAX_PROJECTS) {
       setShowLimitModal(true);
       return;
     }
@@ -59,20 +59,19 @@ export default function Home() {
   }, [newProjectName, router]);
 
   useEffect(() => {
-    const all = getProjects();
-    setRecentProjects(all.slice(0, 6));
+    getProjects().then((all) => setRecentProjects(all.slice(0, 6)));
   }, []);
 
-  const reload = () => setRecentProjects(getProjects().slice(0, 6));
+  const reload = () => getProjects().then((all) => setRecentProjects(all.slice(0, 6)));
 
   const handleOpenProject = (proj: Project) => {
     if (editingId) return;
     router.push(`/projects/${proj.id}`);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm("이 프로젝트를 삭제하시겠습니까?")) return;
-    deleteProject(id);
+    await deleteProject(id);
     reload();
   };
 
@@ -81,9 +80,9 @@ export default function Home() {
     setEditTitle(proj.title);
   };
 
-  const confirmRename = () => {
+  const confirmRename = async () => {
     if (editingId && editTitle.trim()) {
-      renameProject(editingId, editTitle.trim());
+      await renameProject(editingId, editTitle.trim());
       reload();
     }
     setEditingId(null);

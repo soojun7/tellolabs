@@ -27,7 +27,7 @@ export default function SavedPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setProjects(getSavedProjects());
+    getSavedProjects().then(setProjects);
   }, []);
 
   const handleOpen = (proj: Project) => {
@@ -37,15 +37,15 @@ export default function SavedPage() {
     router.push("/editor");
   };
 
-  const handleUnsave = (id: string) => {
-    toggleSaved(id);
-    setProjects(getSavedProjects());
+  const handleUnsave = async (id: string) => {
+    await toggleSaved(id);
+    setProjects(await getSavedProjects());
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm("이 프로젝트를 삭제하시겠습니까?")) return;
-    deleteProject(id);
-    setProjects(getSavedProjects());
+    await deleteProject(id);
+    setProjects(await getSavedProjects());
   };
 
   const startEditing = (proj: Project) => {
@@ -54,10 +54,10 @@ export default function SavedPage() {
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
-  const confirmRename = () => {
+  const confirmRename = async () => {
     if (editingId && editTitle.trim()) {
-      renameProject(editingId, editTitle.trim());
-      setProjects(getSavedProjects());
+      await renameProject(editingId, editTitle.trim());
+      setProjects(await getSavedProjects());
     }
     setEditingId(null);
   };

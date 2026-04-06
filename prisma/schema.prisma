@@ -8,11 +8,30 @@ datasource db {
 }
 
 model User {
-  id             String   @id
-  email          String   @unique
+  id             String    @id
+  email          String    @unique
   name           String?
-  credits        Int      @default(100)
+  credits        Int       @default(100)
   youtubeApiKey  String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  projects       Project[]
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  title       String
+  script      String   @default("")
+  scenes      Json     @default("[]")
+  saved       Boolean  @default(false)
+  renderUrl   String?
+  thumbnailUrl String?
+  thumbnails  Json?
+  style       Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
 }

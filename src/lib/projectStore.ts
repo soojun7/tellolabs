@@ -39,89 +39,110 @@ export interface HistoryEntry {
   timestamp: number;
 }
 
-const PROJECTS_KEY = "sourcebox-projects";
-const HISTORY_KEY = "sourcebox-history";
 export const MAX_PROJECTS = 10;
 
-function genId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-export function getProjects(): Project[] {
-  if (typeof window === "undefined") return [];
-  try {
-    return JSON.parse(localStorage.getItem(PROJECTS_KEY) ?? "[]");
-  } catch {
-    return [];
-  }
-}
-
-export function getProject(id: string): Project | null {
-  return getProjects().find((p) => p.id === id) ?? null;
-}
-
-export function saveProject(proj: Omit<Project, "id" | "createdAt" | "updatedAt"> & { id?: string }): Project {
-  const projects = getProjects();
-  const now = Date.now();
-
-  if (proj.id) {
-    const idx = projects.findIndex((p) => p.id === proj.id);
-    if (idx >= 0) {
-      projects[idx] = { ...projects[idx], ...proj, updatedAt: now };
-      localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
-      addHistory(projects[idx].id, projects[idx].title, "프로젝트 수정");
-      return projects[idx];
-    }
-  }
-
-  if (projects.length >= MAX_PROJECTS) {
-    throw new Error(`프로젝트는 최대 ${MAX_PROJECTS}개까지 저장할 수 있습니다. 기존 프로젝트를 삭제해주세요.`);
-  }
-
-  const newProj: Project = {
-    id: genId(),
-    title: proj.title,
-    script: proj.script,
-    scenes: proj.scenes,
-    createdAt: now,
-    updatedAt: now,
-    saved: proj.saved ?? false,
+function toProject(raw: Record<string, unknown>): Project {
+  return {
+    id: raw.id as string,
+    title: raw.title as string,
+    script: (raw.script as string) || "",
+    scenes: (raw.scenes as SceneData[]) || [],
+    createdAt: new Date(raw.createdAt as string).getTime(),
+    updatedAt: new Date(raw.updatedAt as string).getTime(),
+    saved: (raw.saved as boolean) || false,
+    renderUrl: raw.renderUrl as string | undefined,
+    thumbnailUrl: raw.thumbnailUrl as string | undefined,
+    thumbnails: raw.thumbnails as ThumbnailItem[] | undefined,
+    style: raw.style as ProjectStyle | undefined,
   };
-  projects.unshift(newProj);
-  localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
-  addHistory(newProj.id, newProj.title, "프로젝트 생성");
-  return newProj;
 }
 
-export function deleteProject(id: string): void {
-  const projects = getProjects().filter((p) => p.id !== id);
-  localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
-  addHistory(id, "", "프로젝트 삭제");
+export async function getProjects(): Promise<Project[]> {
+  const res = await fetch("/api/projects");
+  if (!res.ok) return [];
+  const data = await res.json();
+  return (data as Record<string, unknown>[]).map(toProject);
 }
 
-export function renameProject(id: string, newTitle: string): void {
-  const projects = getProjects();
-  const proj = projects.find((p) => p.id === id);
-  if (!proj) return;
-  proj.title = newTitle;
-  proj.updatedAt = Date.now();
-  localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
-  addHistory(id, newTitle, "이름 변경");
+export async function getProject(id: string): Promise<Project | null> {
+  const res = await fetch(`/api/projects/${id}`);
+  if (!res.ok) return null;
+  return toProject(await res.json());
 }
 
-export function toggleSaved(id: string): boolean {
-  const projects = getProjects();
-  const proj = projects.find((p) => p.id === id);
-  if (!proj) return false;
-  proj.saved = !proj.saved;
-  proj.updatedAt = Date.now();
-  localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
-  return proj.saved;
+export async function saveProject(
+  proj: Omit<Project, "id" | "createdAt" | "updatedAt"> & { id?: string },
+): Promise<Project> {
+  if (proj.id) {
+    const res = await fetch(`/api/projects/${proj.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: proj.title,
+        script: proj.script,
+        scenes: proj.scenes,
+        saved: proj.saved,
+        renderUrl: proj.renderUrl,
+        thumbnailUrl: proj.thumbnailUrl,
+        thumbnails: proj.thumbnails,
+        style: proj.style,
+      }),
+    });
+    if (!res.ok) throw new Error("Failed to update project");
+    return toProject(await res.json());
+  }
+
+  const res = await fetch("/api/projects", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      title: proj.title,
+      script: proj.script,
+      scenes: proj.scenes,
+      saved: proj.saved,
+      renderUrl: proj.renderUrl,
+      thumbnailUrl: proj.thumbnailUrl,
+      thumbnails: proj.thumbnails,
+      style: proj.style,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error || "Failed to create project");
+  }
+  return toProject(await res.json());
 }
 
-export function getSavedProjects(): Project[] {
-  return getProjects().filter((p) => p.saved);
+export async function deleteProject(id: string): Promise<void> {
+  await fetch(`/api/projects/${id}`, { method: "DELETE" });
 }
+
+export async function renameProject(id: string, newTitle: string): Promise<void> {
+  await fetch(`/api/projects/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title: newTitle }),
+  });
+}
+
+export async function toggleSaved(id: string): Promise<boolean> {
+  const project = await getProject(id);
+  if (!project) return false;
+  const newSaved = !project.saved;
+  await fetch(`/api/projects/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ saved: newSaved }),
+  });
+  return newSaved;
+}
+
+export async function getSavedProjects(): Promise<Project[]> {
+  const all = await getProjects();
+  return all.filter((p) => p.saved);
+}
+
+const HISTORY_KEY = "sourcebox-history";
 
 export function getHistory(): HistoryEntry[] {
   if (typeof window === "undefined") return [];
@@ -133,9 +154,10 @@ export function getHistory(): HistoryEntry[] {
 }
 
 export function addHistory(projectId: string, title: string, action: string): void {
+  if (typeof window === "undefined") return;
   const history = getHistory();
   history.unshift({
-    id: genId(),
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     projectId,
     title,
     action,
@@ -146,5 +168,6 @@ export function addHistory(projectId: string, title: string, action: string): vo
 }
 
 export function clearHistory(): void {
+  if (typeof window === "undefined") return;
   localStorage.setItem(HISTORY_KEY, JSON.stringify([]));
 }

@@ -838,7 +838,7 @@ export default function NewProjectPage() {
       styleDescription: currentSettings.styleDescription || undefined,
       cachedRefUrls: cachedRefUrls || undefined,
     };
-    const proj = saveProject({ title, script, scenes: finalScenes, saved: false, style: projectStyle });
+    const proj = await saveProject({ title, script, scenes: finalScenes, saved: false, style: projectStyle });
     sessionStorage.setItem("sourcebox-project-id", proj.id);
 
     router.push("/editor");

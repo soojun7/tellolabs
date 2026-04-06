@@ -96,8 +96,8 @@ export default function Sidebar() {
     router.push("/new");
   }, [newProjectName, router]);
 
-  const tryNewProject = () => {
-    if (getProjects().length >= MAX_PROJECTS) {
+  const tryNewProject = async () => {
+    if ((await getProjects()).length >= MAX_PROJECTS) {
       setShowLimitModal(true);
       setMobileMenuOpen(false);
       return;

@@ -37,12 +37,14 @@ export default function ProjectDetailPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    const p = getProject(projectId);
-    if (!p) {
-      router.replace("/projects");
-      return;
-    }
-    setProject(p);
+    (async () => {
+      const p = await getProject(projectId);
+      if (!p) {
+        router.replace("/projects");
+        return;
+      }
+      setProject(p);
+    })();
   }, [projectId, router]);
 
   if (!project) {
@@ -71,7 +73,7 @@ export default function ProjectDetailPage() {
   const normThumbs = (thumbs?: ThumbnailItem[] | string[]): ThumbnailItem[] =>
     (thumbs || []).map((t: ThumbnailItem | string) => typeof t === "string" ? { imageUrl: t } : t);
 
-  const handleSaveThumbnail = (dataUrl: string, layerData?: TextLayer[], bg?: string) => {
+  const handleSaveThumbnail = async (dataUrl: string, layerData?: TextLayer[], bg?: string) => {
     const item: ThumbnailItem = { imageUrl: dataUrl, layers: layerData, bgImage: bg };
     const existing = normThumbs(project.thumbnails);
     if (editingThumbIdx !== null && editingThumbIdx < existing.length) {
@@ -82,23 +84,23 @@ export default function ProjectDetailPage() {
       }
       existing.unshift(item);
     }
-    saveProject({ ...project, thumbnailUrl: dataUrl, thumbnails: existing });
-    setProject(getProject(project.id));
+    await saveProject({ ...project, thumbnailUrl: dataUrl, thumbnails: existing });
+    setProject(await getProject(project.id));
     setThumbEditorOpen(false);
     setEditingThumbIdx(null);
   };
 
   const sceneImages = project.scenes.filter((s) => s.mainImage).map((s) => s.mainImage);
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!confirm("이 프로젝트를 삭제하시겠습니까?")) return;
-    deleteProject(project.id);
+    await deleteProject(project.id);
     router.replace("/projects");
   };
 
-  const handleToggleSaved = () => {
-    toggleSaved(project.id);
-    setProject(getProject(project.id));
+  const handleToggleSaved = async () => {
+    await toggleSaved(project.id);
+    setProject(await getProject(project.id));
   };
 
   const startEditing = () => {
@@ -107,10 +109,10 @@ export default function ProjectDetailPage() {
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
-  const confirmRename = () => {
+  const confirmRename = async () => {
     if (editTitle.trim()) {
-      renameProject(project.id, editTitle.trim());
-      setProject(getProject(project.id));
+      await renameProject(project.id, editTitle.trim());
+      setProject(await getProject(project.id));
     }
     setEditing(false);
   };
@@ -333,9 +335,9 @@ export default function ProjectDetailPage() {
                               수정
                             </button>
                             <button
-                              onClick={() => {
-                                saveProject({ ...project, thumbnailUrl: item.imageUrl });
-                                setProject(getProject(project.id));
+                              onClick={async () => {
+                                await saveProject({ ...project, thumbnailUrl: item.imageUrl });
+                                setProject(await getProject(project.id));
                               }}
                               className={`px-2.5 py-1.5 text-[10px] font-medium rounded-lg transition-colors ${project.thumbnailUrl === item.imageUrl ? "bg-accent text-white" : "bg-white/90 text-gray-800 hover:bg-white"}`}
                             >
@@ -346,11 +348,11 @@ export default function ProjectDetailPage() {
                             </a>
                             {displayThumbs.length > 1 && (
                               <button
-                                onClick={() => {
+                                onClick={async () => {
                                   const updated = normThumbs(project.thumbnails).filter((_, i) => i !== ti);
                                   const newMain = project.thumbnailUrl === item.imageUrl ? (updated[0]?.imageUrl || undefined) : project.thumbnailUrl;
-                                  saveProject({ ...project, thumbnails: updated, thumbnailUrl: newMain });
-                                  setProject(getProject(project.id));
+                                  await saveProject({ ...project, thumbnails: updated, thumbnailUrl: newMain });
+                                  setProject(await getProject(project.id));
                                 }}
                                 className="px-2.5 py-1.5 text-[10px] font-medium bg-red-500/90 text-white rounded-lg hover:bg-red-500 transition-colors"
                               >
@@ -429,15 +431,15 @@ export default function ProjectDetailPage() {
             images={sceneImages}
             script={project.script || project.scenes.map((s) => s.line).join("\n")}
             onSave={handleSaveThumbnail}
-            onSaveAdd={(dataUrl, layerData, bg) => {
+            onSaveAdd={async (dataUrl, layerData, bg) => {
               const item: ThumbnailItem = { imageUrl: dataUrl, layers: layerData, bgImage: bg };
               const existing = normThumbs(project.thumbnails);
               if (project.thumbnailUrl && !existing.some(t => t.imageUrl === project.thumbnailUrl)) {
                 existing.unshift({ imageUrl: project.thumbnailUrl });
               }
               existing.unshift(item);
-              saveProject({ ...project, thumbnailUrl: project.thumbnailUrl || dataUrl, thumbnails: existing });
-              setProject(getProject(project.id));
+              await saveProject({ ...project, thumbnailUrl: project.thumbnailUrl || dataUrl, thumbnails: existing });
+              setProject(await getProject(project.id));
             }}
             onClose={() => { setThumbEditorOpen(false); setEditingThumbIdx(null); }}
             initialThumbnail={editItem ? (editItem.bgImage ? undefined : editItem.imageUrl) : project.thumbnailUrl}
