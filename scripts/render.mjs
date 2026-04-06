@@ -34,7 +34,10 @@ async function main() {
 
   const bundleLocation = await bundle({
     entryPoint,
-    webpackOverride: (config) => config,
+    webpackOverride: (config) => ({
+      ...config,
+      cache: { type: "filesystem" },
+    }),
     publicDir,
   });
 
@@ -73,19 +76,29 @@ async function main() {
 
   let lastProgress = 0;
 
-  const cpuCount = (await import("os")).default.cpus().length;
-  const concurrency = Math.max(1, Math.min(Math.floor(cpuCount * 0.75), 16));
-  console.error(`[render] Using concurrency: ${concurrency} (${cpuCount} CPUs detected)`);
-
   await renderMedia({
     composition,
     serveUrl: bundleLocation,
     codec: "h264",
     outputLocation,
     inputProps,
-    concurrency,
+    concurrency: 1,
+    imageFormat: "jpeg",
+    jpegQuality: 80,
     chromiumOptions: {
       gl: "angle",
+      disableWebSecurity: true,
+      args: [
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--disable-extensions",
+        "--disable-background-networking",
+        "--disable-default-apps",
+        "--disable-translate",
+        "--no-first-run",
+        "--js-flags=--max-old-space-size=256",
+      ],
     },
     onProgress: ({ progress }) => {
       const pct = Math.round(progress * 100);

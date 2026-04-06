@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
   const scriptPath = path.resolve(ROOT, "scripts", "render.mjs");
 
-  const child = spawn(process.execPath, [scriptPath], {
+  const child = spawn(process.execPath, ["--max-old-space-size=768", scriptPath], {
     cwd: ROOT,
     stdio: ["pipe", "pipe", "pipe"],
     env: { ...process.env },
@@ -65,8 +65,22 @@ export async function POST(req: NextRequest) {
     console.error(`[render:${jobId}]`, data.toString());
   });
 
+  let released = false;
+  function releaseOnce() {
+    if (!released) { released = true; renderSem.release(); }
+  }
+
+  child.on("error", (err) => {
+    releaseOnce();
+    const job = jobs.get(jobId);
+    if (job && !job.done) {
+      job.done = true;
+      job.error = err.message;
+    }
+  });
+
   child.on("close", async (code) => {
-    renderSem.release();
+    releaseOnce();
     const job = jobs.get(jobId);
     if (buffer.trim()) {
       try {
