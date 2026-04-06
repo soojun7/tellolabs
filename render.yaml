@@ -1,3 +1,10 @@
+databases:
+  - name: tellolabs-db
+    plan: free
+    region: singapore
+    databaseName: tellolabs
+    user: tellolabs
+
 services:
   - type: web
     name: tellolabs
@@ -13,7 +20,9 @@ services:
       - key: PORT
         value: "3030"
       - key: DATABASE_URL
-        value: file:/app/data/prod.db
+        fromDatabase:
+          name: tellolabs-db
+          property: connectionString
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: ELEVENLABS_API_KEY
@@ -41,7 +50,7 @@ services:
       - key: NEXT_PUBLIC_CLERK_SIGN_UP_URL
         value: /register
     disk:
-      name: tellolabs-data
-      mountPath: /app/data
+      name: tellolabs-media
+      mountPath: /app/public
       sizeGB: 10
     healthCheckPath: /

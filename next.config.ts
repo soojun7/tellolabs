@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  serverExternalPackages: ["@remotion/renderer", "better-sqlite3"],
+  serverExternalPackages: ["@remotion/renderer"],
   devIndicators: false,
   images: {
     remotePatterns: [

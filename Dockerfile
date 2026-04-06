@@ -48,4 +48,4 @@ RUN mkdir -p /app/data /app/public/audio /app/public/renders /app/public/videos 
 
 EXPOSE 3030
 
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
