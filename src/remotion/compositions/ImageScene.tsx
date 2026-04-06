@@ -64,7 +64,6 @@ export const ImageScene: React.FC<ImageSceneProps> = ({ scene }) => {
             objectFit: "cover",
           }}
           muted
-          loop
           toneMapped={false}
         />
       ) : scene.mainImage ? (
