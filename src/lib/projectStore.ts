@@ -217,7 +217,13 @@ export async function migrateLocalStorageToDb(): Promise<number> {
     }
   }
 
-  localStorage.setItem(MIGRATED_KEY, "1");
-  localStorage.removeItem(OLD_PROJECTS_KEY);
+  if (imported === oldProjects.length) {
+    localStorage.setItem(MIGRATED_KEY, "1");
+    localStorage.removeItem(OLD_PROJECTS_KEY);
+  } else if (imported > 0) {
+    const remaining = oldProjects.slice(imported);
+    localStorage.setItem(OLD_PROJECTS_KEY, JSON.stringify(remaining));
+  }
+
   return imported;
 }
