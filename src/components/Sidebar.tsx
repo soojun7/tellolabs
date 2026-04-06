@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { useTheme } from "@/components/ThemeProvider";
-import { getProjects, MAX_PROJECTS } from "@/lib/projectStore";
+import { getProjects, saveProject, MAX_PROJECTS } from "@/lib/projectStore";
 import {
   Box,
   FolderOpen,
@@ -85,15 +85,25 @@ export default function Sidebar() {
     localStorage.setItem("telos-sidebar-expanded", String(val));
   }, []);
 
-  const handleNewProjectConfirm = useCallback(() => {
+  const handleNewProjectConfirm = useCallback(async () => {
     if (!newProjectName.trim()) return;
-    sessionStorage.removeItem("sourcebox-scenes");
-    sessionStorage.removeItem("sourcebox-project-id");
-    sessionStorage.setItem("sourcebox-new-project-name", newProjectName.trim());
-    setShowNewModal(false);
-    setNewProjectName("");
-    setMobileMenuOpen(false);
-    router.push("/new");
+    try {
+      const proj = await saveProject({
+        title: newProjectName.trim(),
+        script: "",
+        scenes: [],
+        saved: false,
+      });
+      sessionStorage.removeItem("sourcebox-scenes");
+      sessionStorage.setItem("sourcebox-project-id", proj.id);
+      sessionStorage.setItem("sourcebox-new-project-name", proj.title);
+      setShowNewModal(false);
+      setNewProjectName("");
+      setMobileMenuOpen(false);
+      router.push("/new");
+    } catch (err: unknown) {
+      alert((err as Error).message || "프로젝트 생성 실패");
+    }
   }, [newProjectName, router]);
 
   const tryNewProject = async () => {

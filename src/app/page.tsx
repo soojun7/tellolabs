@@ -16,7 +16,7 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
-import { getProjects, deleteProject, renameProject, MAX_PROJECTS, migrateLocalStorageToDb, type Project } from "@/lib/projectStore";
+import { getProjects, deleteProject, renameProject, saveProject, MAX_PROJECTS, migrateLocalStorageToDb, type Project } from "@/lib/projectStore";
 
 function formatDate(ts: number) {
   const d = new Date(ts);
@@ -49,13 +49,23 @@ export default function Home() {
     setShowNewModal(true);
   }, []);
 
-  const handleNewProjectConfirm = useCallback(() => {
+  const handleNewProjectConfirm = useCallback(async () => {
     if (!newProjectName.trim()) return;
-    sessionStorage.removeItem("sourcebox-scenes");
-    sessionStorage.removeItem("sourcebox-project-id");
-    sessionStorage.setItem("sourcebox-new-project-name", newProjectName.trim());
-    setShowNewModal(false);
-    router.push("/new");
+    try {
+      const proj = await saveProject({
+        title: newProjectName.trim(),
+        script: "",
+        scenes: [],
+        saved: false,
+      });
+      sessionStorage.removeItem("sourcebox-scenes");
+      sessionStorage.setItem("sourcebox-project-id", proj.id);
+      sessionStorage.setItem("sourcebox-new-project-name", proj.title);
+      setShowNewModal(false);
+      router.push("/new");
+    } catch (err: unknown) {
+      alert((err as Error).message || "프로젝트 생성 실패");
+    }
   }, [newProjectName, router]);
 
   useEffect(() => {
