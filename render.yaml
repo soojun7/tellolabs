@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: tellolabs
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: standard
+    region: singapore
+    numInstances: 1
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3030"
+      - key: DATABASE_URL
+        value: file:/app/data/prod.db
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_VOICE_ID
+        sync: false
+      - key: RUNWARE_API_KEY
+        sync: false
+      - key: WAVESPEED_API_KEY
+        sync: false
+      - key: PEXELS_API_KEY
+        sync: false
+      - key: SERPAPI_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_MAPBOX_TOKEN
+        sync: false
+      - key: REMOTION_MAPBOX_TOKEN
+        sync: false
+      - key: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: NEXT_PUBLIC_CLERK_SIGN_IN_URL
+        value: /login
+      - key: NEXT_PUBLIC_CLERK_SIGN_UP_URL
+        value: /register
+    disk:
+      name: tellolabs-data
+      mountPath: /app/data
+      sizeGB: 10
+    healthCheckPath: /

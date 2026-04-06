@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.env*
+public/audio/*
+public/renders/*
+public/videos/*
+public/uploads/*
+prisma/dev.db
+*.md
+.DS_Store

@@ -1,0 +1,18 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id             String   @id
+  email          String   @unique
+  name           String?
+  credits        Int      @default(100)
+  youtubeApiKey  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

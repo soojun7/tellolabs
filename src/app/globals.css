@@ -1,26 +1,279 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@font-face {
+  font-family: 'Songmyeong';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2110@1.0/JSongMyung-Regular-KO.woff2') format('woff2');
+  font-weight: normal;
+  font-display: swap;
+}
+
+:root,
+[data-theme="light"] {
+  --background: #faf8f6;
+  --foreground: #1a1a1a;
+  --accent: #e85d3a;
+  --accent-light: #fff0eb;
+  --surface: #ffffff;
+  --surface-hover: #f5f3f1;
+  --border: #e8e5e1;
+  --text-secondary: #8a8580;
+  --sidebar-bg: #faf8f6;
+  --editor-bg: #f7f5f3;
+  --editor-bg-deep: #efecea;
+  --editor-bg-panel: #f2f0ee;
+  --editor-border: #e0ddd9;
+  --editor-text: #1a1a1a;
+  --editor-text-muted: #6b6560;
+  --editor-text-dim: #9a9590;
+  --editor-text-faint: #c5c0bb;
+  --editor-surface: #ffffff;
+  --editor-surface-hover: #f0edea;
+  --editor-surface-active: #e8e5e1;
+  --editor-toggle-bg: #e8e5e1;
+}
+
+[data-theme="dark"] {
+  --background: #0f0f0f;
+  --foreground: #e8e5e1;
+  --accent: #e85d3a;
+  --accent-light: #2a1510;
+  --surface: #1a1a1a;
+  --surface-hover: #242424;
+  --border: #2a2a2a;
+  --text-secondary: #8a8580;
+  --sidebar-bg: #0f0f0f;
+  --editor-bg: #111111;
+  --editor-bg-deep: #0a0a0a;
+  --editor-bg-panel: #0d0d0d;
+  --editor-border: rgba(255, 255, 255, 0.1);
+  --editor-text: #ffffff;
+  --editor-text-muted: rgba(255, 255, 255, 0.5);
+  --editor-text-dim: rgba(255, 255, 255, 0.3);
+  --editor-text-faint: rgba(255, 255, 255, 0.15);
+  --editor-surface: rgba(255, 255, 255, 0.05);
+  --editor-surface-hover: rgba(255, 255, 255, 0.08);
+  --editor-surface-active: rgba(255, 255, 255, 0.1);
+  --editor-toggle-bg: #1a1a1a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-light: var(--accent-light);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-text-secondary: var(--text-secondary);
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-ed-bg: var(--editor-bg);
+  --color-ed-bg-deep: var(--editor-bg-deep);
+  --color-ed-bg-panel: var(--editor-bg-panel);
+  --color-ed-border: var(--editor-border);
+  --color-ed-text: var(--editor-text);
+  --color-ed-text-muted: var(--editor-text-muted);
+  --color-ed-text-dim: var(--editor-text-dim);
+  --color-ed-text-faint: var(--editor-text-faint);
+  --color-ed-surface: var(--editor-surface);
+  --color-ed-surface-hover: var(--editor-surface-hover);
+  --color-ed-surface-active: var(--editor-surface-active);
+  --color-ed-toggle-bg: var(--editor-toggle-bg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Light mode: darken accent badge colors for better contrast on light editor bg */
+[data-theme="light"] .text-green-400 { color: #16a34a !important; }
+[data-theme="light"] .text-blue-400 { color: #2563eb !important; }
+[data-theme="light"] .text-purple-400 { color: #7c3aed !important; }
+[data-theme="light"] .text-red-400 { color: #dc2626 !important; }
+[data-theme="light"] .bg-green-500\/10 { background-color: rgba(22, 163, 74, 0.1) !important; }
+[data-theme="light"] .bg-green-500\/20 { background-color: rgba(22, 163, 74, 0.15) !important; }
+[data-theme="light"] .bg-blue-500\/10 { background-color: rgba(37, 99, 235, 0.1) !important; }
+[data-theme="light"] .bg-blue-500\/20 { background-color: rgba(37, 99, 235, 0.15) !important; }
+[data-theme="light"] .bg-purple-500\/10 { background-color: rgba(124, 58, 237, 0.1) !important; }
+[data-theme="light"] .bg-purple-500\/20 { background-color: rgba(124, 58, 237, 0.15) !important; }
+[data-theme="light"] .bg-red-500\/20 { background-color: rgba(220, 38, 38, 0.15) !important; }
+
+[data-theme="dark"] .bg-red-50 { background-color: rgba(239, 68, 68, 0.1) !important; }
+[data-theme="dark"] .bg-amber-50 { background-color: rgba(245, 158, 11, 0.1) !important; }
+[data-theme="dark"] .bg-green-50 { background-color: rgba(34, 197, 94, 0.1) !important; }
+[data-theme="dark"] .bg-blue-50 { background-color: rgba(59, 130, 246, 0.1) !important; }
+[data-theme="dark"] .border-red-200 { border-color: rgba(239, 68, 68, 0.2) !important; }
+[data-theme="dark"] .border-amber-200 { border-color: rgba(245, 158, 11, 0.2) !important; }
+[data-theme="dark"] .border-green-200 { border-color: rgba(34, 197, 94, 0.2) !important; }
+[data-theme="dark"] .border-blue-200 { border-color: rgba(59, 130, 246, 0.2) !important; }
+
+.bg-hero-gradient {
+  position: relative;
+  overflow: hidden;
+  background: var(--background);
+}
+
+.bg-hero-gradient > * {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-glow {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero-glow--1 {
+  top: 5%;
+  left: 10%;
+  width: 400px;
+  height: 350px;
+  background: radial-gradient(ellipse at center, rgba(255, 150, 100, 0.18) 0%, transparent 70%);
+  filter: blur(70px);
+  animation: glowDrift1 9s ease-in-out infinite;
+}
+
+.hero-glow--2 {
+  bottom: 10%;
+  right: 8%;
+  width: 450px;
+  height: 350px;
+  background: radial-gradient(ellipse at center, rgba(255, 130, 80, 0.14) 0%, transparent 70%);
+  filter: blur(80px);
+  animation: glowDrift2 11s ease-in-out infinite;
+}
+
+.hero-glow--3 {
+  top: 15%;
+  right: 15%;
+  width: 300px;
+  height: 250px;
+  background: radial-gradient(ellipse at center, rgba(255, 180, 140, 0.12) 0%, transparent 70%);
+  filter: blur(60px);
+  animation: glowDrift3 7s ease-in-out infinite;
+}
+
+@keyframes glowDrift1 {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(30px, -20px); }
+  66% { transform: translate(-20px, 15px); }
+}
+
+@keyframes glowDrift2 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-25px, -30px); }
+}
+
+@keyframes glowDrift3 {
+  0%, 100% { transform: translate(0, 0); }
+  40% { transform: translate(20px, 25px); }
+  80% { transform: translate(-15px, -10px); }
+}
+
+[data-theme="dark"] .hero-glow--1 {
+  background: radial-gradient(ellipse at center, rgba(232, 93, 58, 0.15) 0%, transparent 70%);
+}
+[data-theme="dark"] .hero-glow--2 {
+  background: radial-gradient(ellipse at center, rgba(232, 93, 58, 0.1) 0%, transparent 70%);
+}
+[data-theme="dark"] .hero-glow--3 {
+  background: radial-gradient(ellipse at center, rgba(255, 150, 100, 0.08) 0%, transparent 70%);
+}
+
+/* Hide Next.js dev indicator */
+[data-nextjs-dialog-overlay],
+[data-nextjs-toast],
+nextjs-portal {
+  display: none !important;
+}
+
+::selection {
+  background: var(--accent);
+  color: white;
+}
+
+textarea:focus {
+  outline: none;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease-out forwards;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--border) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalContentIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-modal-in {
+  animation: modalIn 0.2s ease-out forwards;
+}
+
+.animate-modal-content {
+  animation: modalContentIn 0.25s ease-out forwards;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out forwards;
+}
+
+.safe-pb {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 767px) {
+  main {
+    padding-bottom: 4.5rem;
+  }
 }
