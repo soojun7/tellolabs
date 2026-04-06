@@ -1,63 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir, readFile, unlink, stat } from "fs/promises";
-import path from "path";
-import os from "os";
 import { randomUUID } from "crypto";
-import { execFile } from "child_process";
-import { promisify } from "util";
-import { uploadFileToR2, isR2Configured } from "@/lib/r2";
-
-const execFileAsync = promisify(execFile);
+import { uploadToR2, isR2Configured } from "@/lib/r2";
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY ?? "";
 const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID ?? "4JJwo477JUAx3HV0T7n7";
 
-async function trimAndSqueeze(inputPath: string): Promise<void> {
-  const tmpPath = inputPath.replace(".mp3", "_trimmed.mp3");
-  try {
-    await execFileAsync("ffmpeg", [
-      "-y", "-i", inputPath,
-      "-af", [
-        "silenceremove=stop_periods=-1:stop_threshold=-50dB:stop_duration=0.4:stop_silence=0.25",
-        "areverse",
-        "silenceremove=start_periods=1:start_threshold=-35dB:start_duration=0.05",
-        "afade=t=in:d=0.06",
-        "areverse",
-        "apad=pad_dur=0.02",
-      ].join(","),
-      "-b:a", "128k",
-      tmpPath,
-    ], { timeout: 15000 });
-
-    const trimmedStat = await stat(tmpPath);
-    if (trimmedStat.size > 1000) {
-      const trimmedBuf = await readFile(tmpPath);
-      await writeFile(inputPath, trimmedBuf);
-    }
-  } catch (err) {
-    console.error("Trim/squeeze failed (using original):", err);
-  } finally {
-    try { await unlink(tmpPath); } catch { /* ignore */ }
-  }
-}
-
-async function getActualDuration(filePath: string): Promise<number> {
-  try {
-    const { stdout } = await execFileAsync("ffprobe", [
-      "-v", "error",
-      "-show_entries", "format=duration",
-      "-of", "default=noprint_wrappers=1:nokey=1",
-      filePath,
-    ], { timeout: 5000 });
-    const dur = parseFloat(stdout.trim());
-    return isNaN(dur) ? estimateMp3Duration(filePath) : Math.round(dur * 10) / 10;
-  } catch {
-    return estimateMp3Duration(filePath);
-  }
-}
-
-async function estimateMp3Duration(filePath: string): Promise<number> {
-  const buf = await readFile(filePath);
+function estimateMp3Duration(buf: Buffer): number {
   const bitrate = 128_000;
   const sizeInBits = buf.length * 8;
   return Math.round((sizeInBits / bitrate) * 10) / 10;
@@ -123,28 +71,18 @@ export async function POST(req: NextRequest) {
     }
 
     const audioBuffer = Buffer.from(await res.arrayBuffer());
-
-    const tmpDir = path.join(os.tmpdir(), "tello-audio");
-    await mkdir(tmpDir, { recursive: true });
-
     const filename = `tts-${randomUUID()}.mp3`;
-    const filePath = path.join(tmpDir, filename);
-    await writeFile(filePath, audioBuffer);
-
-    await trimAndSqueeze(filePath);
-
-    const duration = await getActualDuration(filePath);
+    const duration = estimateMp3Duration(audioBuffer);
 
     let audioUrl: string;
     if (isR2Configured()) {
-      audioUrl = await uploadFileToR2(`audio/${filename}`, filePath);
-      try { await unlink(filePath); } catch { /* ignore */ }
+      audioUrl = await uploadToR2(`audio/${filename}`, audioBuffer);
     } else {
-      const localDir = path.join(process.cwd(), "public", "audio");
+      const { writeFile, mkdir } = await import("fs/promises");
+      const { join } = await import("path");
+      const localDir = join(process.cwd(), "public", "audio");
       await mkdir(localDir, { recursive: true });
-      const buf = await readFile(filePath);
-      await writeFile(path.join(localDir, filename), buf);
-      try { await unlink(filePath); } catch { /* ignore */ }
+      await writeFile(join(localDir, filename), audioBuffer);
       audioUrl = `/audio/${filename}`;
     }
 

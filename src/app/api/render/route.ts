@@ -3,8 +3,10 @@ import { spawn } from "child_process";
 import path from "path";
 import { mkdir } from "fs/promises";
 import { uploadFileToR2, isR2Configured } from "@/lib/r2";
+import { getSemaphore } from "@/lib/semaphore";
 
 const ROOT = path.resolve(process.cwd());
+const renderSem = getSemaphore("render", 1);
 
 const jobs = new Map<
   string,
@@ -16,6 +18,8 @@ export async function POST(req: NextRequest) {
   const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   jobs.set(jobId, { progress: 0, done: false });
+
+  await renderSem.acquire();
 
   const renderDir = path.join(ROOT, "public", "renders");
   await mkdir(renderDir, { recursive: true });
@@ -62,6 +66,7 @@ export async function POST(req: NextRequest) {
   });
 
   child.on("close", async (code) => {
+    renderSem.release();
     const job = jobs.get(jobId);
     if (buffer.trim()) {
       try {

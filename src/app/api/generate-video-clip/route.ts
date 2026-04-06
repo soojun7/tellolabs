@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir, unlink } from "fs/promises";
-import path from "path";
-import os from "os";
 import { randomUUID } from "crypto";
-import { execFile } from "child_process";
-import { promisify } from "util";
-import { uploadFileToR2, isR2Configured } from "@/lib/r2";
-
-const execFileAsync = promisify(execFile);
+import { uploadToR2, isR2Configured } from "@/lib/r2";
 
 const WAVESPEED_BASE = "https://api.wavespeed.ai/api/v3";
 const VIDEO_MODEL = "minimax/hailuo-02/fast";
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 300_000;
 const ALLOWED_DURATIONS = [6, 10];
-const TARGET_FPS = 30;
 
 function snapDuration(seconds: number): number {
   return ALLOWED_DURATIONS.reduce((best, v) =>
@@ -108,46 +100,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to download video" }, { status: 502 });
     }
     const videoBuf = Buffer.from(await videoResp.arrayBuffer());
-
-    const tmpDir = path.join(os.tmpdir(), "tello-video");
-    await mkdir(tmpDir, { recursive: true });
-
-    const rawFilename = `clip-raw-${randomUUID()}.mp4`;
-    const rawPath = path.join(tmpDir, rawFilename);
-    await writeFile(rawPath, videoBuf);
-
     const filename = `clip-${randomUUID()}.mp4`;
-    const filePath = path.join(tmpDir, filename);
-
-    try {
-      await execFileAsync("ffmpeg", [
-        "-y", "-i", rawPath,
-        "-vf", `fps=${TARGET_FPS},scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080`,
-        "-vsync", "cfr",
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-crf", "18",
-        "-pix_fmt", "yuv420p",
-        "-movflags", "+faststart",
-        "-an",
-        filePath,
-      ], { timeout: 120000 });
-      try { await unlink(rawPath); } catch { /* ignore */ }
-    } catch (err) {
-      console.error("FFmpeg re-encode failed, using original:", err);
-      const { rename } = await import("fs/promises");
-      await rename(rawPath, filePath);
-    }
 
     let resultUrl: string;
     if (isR2Configured()) {
-      resultUrl = await uploadFileToR2(`videos/${filename}`, filePath);
-      try { await unlink(filePath); } catch { /* ignore */ }
+      resultUrl = await uploadToR2(`videos/${filename}`, videoBuf);
     } else {
-      const localDir = path.join(process.cwd(), "public", "videos");
+      const { writeFile, mkdir } = await import("fs/promises");
+      const { join } = await import("path");
+      const localDir = join(process.cwd(), "public", "videos");
       await mkdir(localDir, { recursive: true });
-      const { rename } = await import("fs/promises");
-      await rename(filePath, path.join(localDir, filename));
+      await writeFile(join(localDir, filename), videoBuf);
       resultUrl = `/videos/${filename}`;
     }
 

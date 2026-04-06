@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir, unlink } from "fs/promises";
-import path from "path";
-import os from "os";
 import { randomUUID } from "crypto";
-import { execFile } from "child_process";
-import { promisify } from "util";
-import { uploadFileToR2, isR2Configured } from "@/lib/r2";
+import { uploadToR2, isR2Configured } from "@/lib/r2";
 
-const execFileAsync = promisify(execFile);
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY ?? "";
 
 const MOTION_SFX_MAP: Record<string, string> = {
@@ -53,19 +47,11 @@ const MOTION_SFX_MAP: Record<string, string> = {
   emojiScene: "multiple funny cartoon pop sounds, bouncy emoji reveal, clean low volume",
 };
 
-async function getActualDuration(filePath: string): Promise<number> {
-  try {
-    const { stdout } = await execFileAsync("ffprobe", [
-      "-v", "error",
-      "-show_entries", "format=duration",
-      "-of", "default=noprint_wrappers=1:nokey=1",
-      filePath,
-    ], { timeout: 5000 });
-    const dur = parseFloat(stdout.trim());
-    return isNaN(dur) ? 2 : Math.round(dur * 10) / 10;
-  } catch {
-    return 2;
-  }
+function estimateMp3Duration(buf: Buffer): number {
+  const bitrate = 128_000;
+  const sizeInBits = buf.length * 8;
+  const est = Math.round((sizeInBits / bitrate) * 10) / 10;
+  return est > 0 ? est : 2;
 }
 
 export async function POST(req: NextRequest) {
@@ -114,25 +100,18 @@ export async function POST(req: NextRequest) {
     }
 
     const audioBuffer = Buffer.from(await res.arrayBuffer());
-
-    const tmpDir = path.join(os.tmpdir(), "tello-audio");
-    await mkdir(tmpDir, { recursive: true });
-
     const filename = `sfx-${randomUUID()}.mp3`;
-    const filePath = path.join(tmpDir, filename);
-    await writeFile(filePath, audioBuffer);
-
-    const actualDuration = await getActualDuration(filePath);
+    const actualDuration = estimateMp3Duration(audioBuffer);
 
     let sfxUrl: string;
     if (isR2Configured()) {
-      sfxUrl = await uploadFileToR2(`audio/${filename}`, filePath);
-      try { await unlink(filePath); } catch { /* ignore */ }
+      sfxUrl = await uploadToR2(`audio/${filename}`, audioBuffer);
     } else {
-      const localDir = path.join(process.cwd(), "public", "audio");
+      const { writeFile, mkdir } = await import("fs/promises");
+      const { join } = await import("path");
+      const localDir = join(process.cwd(), "public", "audio");
       await mkdir(localDir, { recursive: true });
-      await writeFile(path.join(localDir, filename), audioBuffer);
-      try { await unlink(filePath); } catch { /* ignore */ }
+      await writeFile(join(localDir, filename), audioBuffer);
       sfxUrl = `/audio/${filename}`;
     }
 
