@@ -8,6 +8,8 @@ import { promisify } from "util";
 import { uploadFileToR2, isR2Configured } from "@/lib/r2";
 import { requireAuth, useCredits } from "@/lib/apiAuth";
 
+export const dynamic = "force-dynamic";
+
 const execFileAsync = promisify(execFile);
 
 const VOICEVOX_URL = process.env.VOICEVOX_URL ?? "http://localhost:50021";

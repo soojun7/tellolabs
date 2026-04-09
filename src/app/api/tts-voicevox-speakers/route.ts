@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/apiAuth";
 
+export const dynamic = "force-dynamic";
+
 const VOICEVOX_URL = process.env.VOICEVOX_URL ?? "http://localhost:50021";
 
 interface SpeakerMeta {

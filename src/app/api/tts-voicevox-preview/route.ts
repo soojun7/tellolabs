@@ -3,6 +3,8 @@ import { writeFile, mkdir, stat } from "fs/promises";
 import path from "path";
 import { requireAuth } from "@/lib/apiAuth";
 
+export const dynamic = "force-dynamic";
+
 const VOICEVOX_URL = process.env.VOICEVOX_URL ?? "http://localhost:50021";
 
 export async function GET(req: NextRequest) {

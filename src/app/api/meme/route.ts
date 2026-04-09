@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/apiAuth";
 
+export const dynamic = "force-dynamic";
+
 const API_KEY = process.env.SUPERMEME_API_KEY!;
 const ENDPOINT = "https://app.supermeme.ai/api/v2/meme/image";
 

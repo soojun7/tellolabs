@@ -3,6 +3,8 @@ import { randomUUID } from "crypto";
 import { uploadToR2, isR2Configured } from "@/lib/r2";
 import { requireAuth, useCredits } from "@/lib/apiAuth";
 
+export const dynamic = "force-dynamic";
+
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY ?? "";
 const DEFAULT_VOICE_ID = process.env.ELEVENLABS_VOICE_ID ?? "4JJwo477JUAx3HV0T7n7";
 

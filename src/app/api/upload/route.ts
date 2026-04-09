@@ -5,6 +5,8 @@ import { randomUUID } from "crypto";
 import { uploadToR2, isR2Configured } from "@/lib/r2";
 import { requireAuth } from "@/lib/apiAuth";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   const authResult = await requireAuth();
   if (authResult instanceof NextResponse) return authResult;

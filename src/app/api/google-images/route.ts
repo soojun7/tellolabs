@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/apiAuth";
 
+export const dynamic = "force-dynamic";
+
 const API_KEY = process.env.SERPAPI_API_KEY!;
 const ENDPOINT = "https://serpapi.com/search.json";
 

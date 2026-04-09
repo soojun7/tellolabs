@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/apiAuth";
 
+export const dynamic = "force-dynamic";
+
 const PEXELS_KEY = process.env.PEXELS_API_KEY!;
 const SUPERMEME_KEY = process.env.SUPERMEME_API_KEY!;
 const SERPAPI_KEY = process.env.SERPAPI_API_KEY!;

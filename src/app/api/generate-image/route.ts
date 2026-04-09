@@ -4,6 +4,8 @@ import { readFile } from "fs/promises";
 import { join } from "path";
 import { requireAuth, useCredits } from "@/lib/apiAuth";
 
+export const dynamic = "force-dynamic";
+
 const RUNWARE_KEY = process.env.RUNWARE_API_KEY!;
 const RUNWARE_URL = "https://api.runware.ai/v1";
 

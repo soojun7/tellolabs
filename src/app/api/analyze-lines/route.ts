@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, useCredits } from "@/lib/apiAuth";
 
+export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY!;

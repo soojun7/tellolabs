@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/apiAuth";
 
+export const dynamic = "force-dynamic";
+
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY ?? "";
 
 export async function GET() {

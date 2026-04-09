@@ -5,6 +5,8 @@ import {
 } from "@remotion/lambda/client";
 import { requireAuth, useCredits } from "@/lib/apiAuth";
 
+export const dynamic = "force-dynamic";
+
 const REGION = (process.env.REMOTION_AWS_REGION || "ap-northeast-2") as
   | "ap-northeast-2"
   | "us-east-1"

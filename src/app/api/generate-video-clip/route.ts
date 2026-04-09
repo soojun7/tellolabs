@@ -3,6 +3,8 @@ import { randomUUID } from "crypto";
 import { uploadToR2, isR2Configured } from "@/lib/r2";
 import { requireAuth, useCredits } from "@/lib/apiAuth";
 
+export const dynamic = "force-dynamic";
+
 const WAVESPEED_BASE = "https://api.wavespeed.ai/api/v3";
 const VIDEO_MODEL = "minimax/hailuo-02/fast";
 const POLL_INTERVAL_MS = 3000;

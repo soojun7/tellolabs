@@ -3,6 +3,8 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { ensureUser } from "@/lib/ensureUser";
 
+export const dynamic = "force-dynamic";
+
 const MAX_PROJECTS = 10;
 
 export async function GET() {

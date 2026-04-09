@@ -3,6 +3,8 @@ import { readFile } from "fs/promises";
 import { join } from "path";
 import { requireAuth, useCredits } from "@/lib/apiAuth";
 
+export const dynamic = "force-dynamic";
+
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY!;
 
 export async function POST(req: NextRequest) {

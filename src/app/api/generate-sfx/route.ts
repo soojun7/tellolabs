@@ -3,6 +3,8 @@ import { randomUUID } from "crypto";
 import { uploadToR2, isR2Configured } from "@/lib/r2";
 import { requireAuth, useCredits } from "@/lib/apiAuth";
 
+export const dynamic = "force-dynamic";
+
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY ?? "";
 
 const MOTION_SFX_MAP: Record<string, string> = {
