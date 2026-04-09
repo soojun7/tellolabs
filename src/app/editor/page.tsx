@@ -24,6 +24,7 @@ import {
 import { refineForDisplay } from "@/remotion/textUtils";
 import { AVAILABLE_FONTS, getFontsForLanguage } from "@/remotion/fonts";
 import { apiFetch } from "@/lib/apiFetch";
+import RenderPanel, { RenderConfirmDialog, type RenderJob } from "@/components/RenderPanel";
 
 const RemotionPlayer = dynamic(() => import("./RemotionPlayerWrapper"), {
   ssr: false,
@@ -95,6 +96,8 @@ function EditorPage() {
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderUrl, setRenderUrl] = useState<string | null>(null);
   const [renderingScene, setRenderingScene] = useState<number | null>(null);
+  const [renderJobs, setRenderJobs] = useState<RenderJob[]>([]);
+  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; props: VideoProps | null; sceneCount: number; sceneIdx: number | null }>({ open: false, props: null, sceneCount: 0, sceneIdx: null });
   const [isRefining, setIsRefining] = useState(false);
   const [generatingImageIdx, setGeneratingImageIdx] = useState<Set<number>>(new Set());
   const [generatingTTSIdx, setGeneratingTTSIdx] = useState<Set<number>>(new Set());
@@ -874,10 +877,21 @@ function EditorPage() {
     setSelectedScene((prev) => Math.max(0, prev - 1));
   }, []);
 
-  const doRender = useCallback(async (props: VideoProps) => {
+  const updateJob = useCallback((id: string, patch: Partial<RenderJob>) => {
+    setRenderJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...patch } : j)));
+  }, []);
+
+  const doRender = useCallback(async (props: VideoProps, sceneIdx: number | null = null) => {
+    const jobId = `local-${Date.now()}`;
+    const label = sceneIdx !== null ? `장면 ${sceneIdx + 1} 내보내기` : `전체 영상 내보내기 (${props.scenes.length}장면)`;
+    const newJob: RenderJob = { id: jobId, label, progress: 0, done: false, startedAt: Date.now(), sceneCount: props.scenes.length };
+
+    setRenderJobs((prev) => [newJob, ...prev]);
     setIsRendering(true);
     setRenderProgress(0);
     setRenderUrl(null);
+    if (sceneIdx !== null) setRenderingScene(sceneIdx);
+
     try {
       const res = await apiFetch("/api/render", {
         method: "POST",
@@ -893,43 +907,61 @@ function EditorPage() {
           const poll = await apiFetch(`/api/render?jobId=${data.jobId}`);
           const status = await poll.json();
           setRenderProgress(status.progress ?? 0);
+          updateJob(jobId, { progress: status.progress ?? 0 });
           if (status.error) throw new Error(status.error);
           if (status.done) {
             done = true;
             if (status.url) {
               setRenderUrl(status.url);
+              updateJob(jobId, { done: true, progress: 1, url: status.url });
               if (projectId) {
                 const p = await getProject(projectId);
                 if (p) await saveProject({ ...p, renderUrl: status.url });
               }
-              const a = document.createElement("a");
-              a.href = status.url;
-              a.download = status.url.split("/").pop() || "render.mp4";
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
             }
           }
         }
       }
     } catch (err: unknown) {
-      alert(`렌더링 실패: ${(err as Error).message}`);
+      const msg = (err as Error).message;
+      updateJob(jobId, { done: true, error: msg });
     } finally {
       setIsRendering(false);
       setRenderingScene(null);
     }
+  }, [updateJob, projectId]);
+
+  const estimateRenderSeconds = useCallback((sceneCount: number) => {
+    return Math.max(60, sceneCount * 8);
   }, []);
 
-  const handleExportAll = useCallback(() => doRender(videoProps), [doRender, videoProps]);
+  const handleExportAll = useCallback(() => {
+    setConfirmDialog({ open: true, props: videoProps, sceneCount: scenes.length, sceneIdx: null });
+  }, [videoProps, scenes.length]);
 
   const handleExportScene = useCallback((index: number) => {
-    setRenderingScene(index);
-    doRender({
-      scenes: [scenes[index]],
-      fps: VIDEO_FPS,
-      sceneDurationFrames: SCENE_DURATION_FRAMES,
-    });
-  }, [doRender, scenes]);
+    const props = { scenes: [scenes[index]], fps: VIDEO_FPS, sceneDurationFrames: SCENE_DURATION_FRAMES };
+    setConfirmDialog({ open: true, props, sceneCount: 1, sceneIdx: index });
+  }, [scenes]);
+
+  const handleConfirmRender = useCallback(() => {
+    if (confirmDialog.props) {
+      doRender(confirmDialog.props, confirmDialog.sceneIdx);
+    }
+    setConfirmDialog({ open: false, props: null, sceneCount: 0, sceneIdx: null });
+  }, [confirmDialog, doRender]);
+
+  const handleCancelRender = useCallback(() => {
+    setConfirmDialog({ open: false, props: null, sceneCount: 0, sceneIdx: null });
+  }, []);
+
+  const handleDismissJob = useCallback((id: string) => {
+    setRenderJobs((prev) => prev.filter((j) => j.id !== id));
+  }, []);
+
+  const handleDismissAllJobs = useCallback(() => {
+    setRenderJobs([]);
+  }, []);
 
   if (scenes.length === 0) {
     return (
@@ -1960,6 +1992,15 @@ function EditorPage() {
 
       </div>
       </div>
+
+      <RenderPanel jobs={renderJobs} onDismiss={handleDismissJob} onDismissAll={handleDismissAllJobs} />
+      <RenderConfirmDialog
+        open={confirmDialog.open}
+        sceneCount={confirmDialog.sceneCount}
+        estimatedSeconds={estimateRenderSeconds(confirmDialog.sceneCount)}
+        onConfirm={handleConfirmRender}
+        onCancel={handleCancelRender}
+      />
     </div>
   );
 }
