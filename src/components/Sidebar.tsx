@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { useTheme } from "@/components/ThemeProvider";
 import { getProjects, saveProject, MAX_PROJECTS } from "@/lib/projectStore";
+import { apiFetch } from "@/lib/apiFetch";
 import {
   Box,
   FolderOpen,
@@ -67,7 +68,7 @@ export default function Sidebar() {
 
   useEffect(() => {
     if (isSignedIn) {
-      fetch("/api/user").then(r => r.json()).then(d => setCredits(d.credits ?? 0)).catch(() => {});
+      apiFetch("/api/user").then(r => r.json()).then(d => setCredits(d.credits ?? 0)).catch(() => {});
     }
   }, [isSignedIn]);
 

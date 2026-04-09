@@ -1,16 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { spawn } from "child_process";
-import path from "path";
-import { mkdir } from "fs/promises";
-import { uploadFileToR2, isR2Configured } from "@/lib/r2";
-import { getSemaphore } from "@/lib/semaphore";
+import {
+  renderMediaOnLambda,
+  getRenderProgress,
+} from "@remotion/lambda/client";
 
-const ROOT = path.resolve(process.cwd());
-const renderSem = getSemaphore("render", 1);
+const REGION = (process.env.REMOTION_AWS_REGION || "ap-northeast-2") as
+  | "ap-northeast-2"
+  | "us-east-1"
+  | "us-east-2"
+  | "us-west-2"
+  | "eu-central-1"
+  | "eu-west-1"
+  | "eu-west-2"
+  | "ap-south-1"
+  | "ap-southeast-1"
+  | "ap-southeast-2"
+  | "ap-northeast-1";
+
+const FUNCTION_NAME = process.env.REMOTION_FUNCTION_NAME!;
+const SERVE_URL = process.env.REMOTION_SERVE_URL!;
 
 const jobs = new Map<
   string,
-  { progress: number; done: boolean; url?: string; error?: string }
+  {
+    progress: number;
+    done: boolean;
+    url?: string;
+    error?: string;
+    renderId?: string;
+    bucketName?: string;
+  }
 >();
 
 export async function POST(req: NextRequest) {
@@ -19,105 +38,78 @@ export async function POST(req: NextRequest) {
 
   jobs.set(jobId, { progress: 0, done: false });
 
-  await renderSem.acquire();
+  (async () => {
+    try {
+      const { scenes, fps = 30, sceneDurationFrames = 120 } = body;
 
-  const renderDir = path.join(ROOT, "public", "renders");
-  await mkdir(renderDir, { recursive: true });
+      console.log(`[render:${jobId}] Starting Lambda render, ${scenes?.length || 0} scenes`);
 
-  const scriptPath = path.resolve(ROOT, "scripts", "render.mjs");
+      const { renderId, bucketName } = await renderMediaOnLambda({
+        region: REGION,
+        functionName: FUNCTION_NAME,
+        serveUrl: SERVE_URL,
+        composition: "MotionVideo",
+        inputProps: { scenes, fps, sceneDurationFrames },
+        codec: "h264",
+        imageFormat: "jpeg",
+        jpegQuality: 80,
+        framesPerLambda: 300,
+        privacy: "public",
+        maxRetries: 1,
+      });
 
-  const child = spawn(process.execPath, ["--max-old-space-size=768", scriptPath], {
-    cwd: ROOT,
-    stdio: ["pipe", "pipe", "pipe"],
-    env: { ...process.env },
-  });
+      console.log(`[render:${jobId}] renderId=${renderId}, bucket=${bucketName}`);
 
-  child.stdin.write(JSON.stringify(body));
-  child.stdin.end();
+      const job = jobs.get(jobId);
+      if (job) {
+        job.renderId = renderId;
+        job.bucketName = bucketName;
+      }
 
-  let buffer = "";
+      let done = false;
+      while (!done) {
+        await new Promise((r) => setTimeout(r, 2000));
 
-  child.stdout.on("data", (data: Buffer) => {
-    buffer += data.toString();
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
+        const progress = await getRenderProgress({
+          renderId,
+          bucketName,
+          functionName: FUNCTION_NAME,
+          region: REGION,
+        });
 
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      try {
-        const msg = JSON.parse(line);
-        const job = jobs.get(jobId);
-        if (job) {
-          job.progress = msg.progress ?? job.progress;
-          if (msg.done) {
-            job.done = true;
-            job.url = msg.url;
-            job.error = msg.error;
-          }
+        const currentJob = jobs.get(jobId);
+        if (!currentJob) break;
+
+        if (progress.fatalErrorEncountered) {
+          currentJob.done = true;
+          currentJob.error =
+            progress.errors?.[0]?.message || "Lambda render failed";
+          done = true;
+          console.error(`[render:${jobId}] FATAL:`, currentJob.error);
+          break;
         }
-      } catch {
-        /* non-json line */
-      }
-    }
-  });
 
-  child.stderr.on("data", (data: Buffer) => {
-    console.error(`[render:${jobId}]`, data.toString());
-  });
+        currentJob.progress = progress.overallProgress;
 
-  let released = false;
-  function releaseOnce() {
-    if (!released) { released = true; renderSem.release(); }
-  }
-
-  child.on("error", (err) => {
-    releaseOnce();
-    const job = jobs.get(jobId);
-    if (job && !job.done) {
-      job.done = true;
-      job.error = err.message;
-    }
-  });
-
-  child.on("close", async (code) => {
-    releaseOnce();
-    const job = jobs.get(jobId);
-    if (buffer.trim()) {
-      try {
-        const msg = JSON.parse(buffer.trim());
-        if (job) {
-          job.progress = msg.progress ?? job.progress;
-          if (msg.done) {
-            job.done = true;
-            job.url = msg.url;
-            job.error = msg.error;
-          }
+        if (progress.done && progress.outputFile) {
+          currentJob.done = true;
+          currentJob.progress = 1;
+          currentJob.url = progress.outputFile;
+          done = true;
+          console.log(`[render:${jobId}] Done! ${progress.outputFile}`);
         }
-      } catch { /* ignore */ }
-      buffer = "";
-    }
-    if (job && !job.done) {
-      job.done = true;
-      if (code !== 0) {
-        job.error = `Process exited with code ${code}`;
       }
-    }
-
-    if (job?.url && !job.error && isR2Configured()) {
-      try {
-        const localFile = path.join(ROOT, "public", job.url);
-        const key = job.url.startsWith("/") ? job.url.slice(1) : job.url;
-        const r2Url = await uploadFileToR2(key, localFile);
-        job.url = r2Url;
-        const { unlink } = await import("fs/promises");
-        try { await unlink(localFile); } catch { /* ignore */ }
-      } catch (err) {
-        console.error(`[render:${jobId}] R2 upload failed:`, err);
+    } catch (err) {
+      console.error(`[render:${jobId}] ERROR:`, err);
+      const job = jobs.get(jobId);
+      if (job) {
+        job.done = true;
+        job.error = err instanceof Error ? err.message : String(err);
       }
+    } finally {
+      setTimeout(() => jobs.delete(jobId), 10 * 60 * 1000);
     }
-
-    setTimeout(() => jobs.delete(jobId), 5 * 60 * 1000);
-  });
+  })();
 
   return NextResponse.json({ jobId });
 }

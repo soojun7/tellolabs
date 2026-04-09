@@ -37,6 +37,7 @@ import {
   type GenerationSettings,
 } from "@/lib/generationSettings";
 import { loadPreferences, savePreferences } from "@/lib/userPreferences";
+import { apiFetch } from "@/lib/apiFetch";
 
 type Phase = "input" | "setup" | "analyzing" | "select" | "generating";
 
@@ -163,7 +164,7 @@ export default function NewProjectPage() {
   const analyzeStyleFromImage = useCallback(async (imageUrl: string) => {
     setAnalyzingStyle(true);
     try {
-      const res = await fetch("/api/analyze-style", {
+      const res = await apiFetch("/api/analyze-style", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageUrl }),
@@ -191,7 +192,7 @@ export default function NewProjectPage() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const res = await apiFetch("/api/upload", { method: "POST", body: fd });
       const data = await res.json();
       if (data.url) {
         setSettings((p) => ({ ...p, customStyleImage: data.url }));
@@ -247,7 +248,7 @@ export default function NewProjectPage() {
     setVoices([]);
 
     if (settings.language === "ja") {
-      fetch("/api/tts-voicevox-speakers")
+      apiFetch("/api/tts-voicevox-speakers")
         .then((r) => r.json())
         .then((d) => {
           if (d.speakers?.length) {
@@ -276,7 +277,7 @@ export default function NewProjectPage() {
         .catch(() => {})
         .finally(() => setLoadingVoices(false));
     } else {
-      fetch("/api/tts-voices")
+      apiFetch("/api/tts-voices")
         .then((r) => r.json())
         .then((d) => {
           if (d.voices?.length) {
@@ -305,7 +306,7 @@ export default function NewProjectPage() {
     if (voice.language === "ja") {
       setPreviewLoading(voice.voice_id);
       try {
-        const res = await fetch(`/api/tts-voicevox-preview?id=${voice.voice_id}`);
+        const res = await apiFetch(`/api/tts-voicevox-preview?id=${voice.voice_id}`);
         const data = await res.json();
         if (data.previewUrl) {
           const audio = new Audio(data.previewUrl);
@@ -328,7 +329,7 @@ export default function NewProjectPage() {
     setYtRewrittenScript("");
     setYtStep("url");
     try {
-      const res = await fetch("/api/youtube-transcript", {
+      const res = await apiFetch("/api/youtube-transcript", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: ytUrl.trim() }),
@@ -349,7 +350,7 @@ export default function NewProjectPage() {
     setYtRewriting(true);
     setYtError("");
     try {
-      const res = await fetch("/api/rewrite-script", {
+      const res = await apiFetch("/api/rewrite-script", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -400,7 +401,7 @@ export default function NewProjectPage() {
     setPhase("analyzing");
 
     try {
-      const res = await fetch("/api/analyze-lines", {
+      const res = await apiFetch("/api/analyze-lines", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lines: parsedLines }),
@@ -540,7 +541,7 @@ export default function NewProjectPage() {
       const BATCH = 50;
       for (let b = 0; b < untranslated.length; b += BATCH) {
         const batch = untranslated.slice(b, b + BATCH);
-        const res = await fetch("/api/translate", {
+        const res = await apiFetch("/api/translate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ texts: batch.map(u => u.text), from: "ja", to: "ko" }),
@@ -575,7 +576,7 @@ export default function NewProjectPage() {
     const refImg = currentSettings.customStyleImage || currentSettings.characterRefImage;
     if (refImg && !currentSettings.styleDescription && isNativeModel(currentSettings.imageModel)) {
       try {
-        const analyzeRes = await fetch("/api/analyze-style", {
+        const analyzeRes = await apiFetch("/api/analyze-style", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ imageUrl: refImg }),
@@ -636,7 +637,7 @@ export default function NewProjectPage() {
         const start = ci * SCENE_CHUNK;
         const chunk = sceneInputs.slice(start, start + SCENE_CHUNK);
         try {
-          const res = await fetch("/api/analyze-scenes", {
+          const res = await apiFetch("/api/analyze-scenes", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -699,7 +700,7 @@ export default function NewProjectPage() {
 
     if (refImagesToUpload.length > 0) {
       try {
-        const uploadRes = await fetch("/api/upload-ref", {
+        const uploadRes = await apiFetch("/api/upload-ref", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ images: refImagesToUpload }),
@@ -723,7 +724,7 @@ export default function NewProjectPage() {
         "A high quality wide shot of a clean, well-lit scene with natural environment details and calm atmosphere. High quality, soft lighting, no text, no watermark, no typography, no letters";
       return async () => {
         try {
-          const res = await fetch("/api/generate-image", {
+          const res = await apiFetch("/api/generate-image", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -758,7 +759,7 @@ export default function NewProjectPage() {
           const body = settings.language === "ja"
             ? { text: scene.line, speakerId: settings.voiceId ? Number(settings.voiceId) : undefined }
             : { text: scene.line, voiceId: settings.voiceId || undefined };
-          const res = await fetch(ttsEndpoint, {
+          const res = await apiFetch(ttsEndpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
@@ -804,7 +805,7 @@ export default function NewProjectPage() {
               const imgSrc = scene.mainImage.startsWith("http")
                 ? scene.mainImage
                 : `${window.location.origin}${scene.mainImage}`;
-              const res = await fetch("/api/generate-video-clip", {
+              const res = await apiFetch("/api/generate-video-clip", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -1384,7 +1385,7 @@ export default function NewProjectPage() {
                           if (file && file.type.startsWith("image/")) {
                             const fd = new FormData();
                             fd.append("file", file);
-                            fetch("/api/upload", { method: "POST", body: fd })
+                            apiFetch("/api/upload", { method: "POST", body: fd })
                               .then((r) => r.json())
                               .then((d) => { if (d.url) { setSettings((p) => ({ ...p, characterRefImage: d.url })); analyzeStyleFromImage(d.url); } });
                           }
@@ -1404,7 +1405,7 @@ export default function NewProjectPage() {
                             if (file) {
                               const fd = new FormData();
                               fd.append("file", file);
-                              fetch("/api/upload", { method: "POST", body: fd })
+                              apiFetch("/api/upload", { method: "POST", body: fd })
                                 .then((r) => r.json())
                                 .then((d) => { if (d.url) { setSettings((p) => ({ ...p, characterRefImage: d.url })); analyzeStyleFromImage(d.url); } });
                             }

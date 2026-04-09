@@ -5,6 +5,7 @@ import { useUser, useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { useTheme } from "@/components/ThemeProvider";
+import { apiFetch } from "@/lib/apiFetch";
 import {
   User, Mail, Coins, Key, Save, LogOut, Loader2,
   Eye, EyeOff, ExternalLink, Check, Sun, Moon, Monitor,
@@ -38,7 +39,7 @@ export default function MyPage() {
       return;
     }
     if (isSignedIn) {
-      fetch("/api/user")
+      apiFetch("/api/user")
         .then((r) => r.json())
         .then((data) => {
           setProfile(data);
@@ -54,7 +55,7 @@ export default function MyPage() {
     setSaving(true);
     setSaved(false);
     try {
-      const res = await fetch("/api/user", {
+      const res = await apiFetch("/api/user", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, youtubeApiKey }),

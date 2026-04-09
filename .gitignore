@@ -60,3 +60,9 @@ prisma/dev.db-journal
 
 # render data
 /data
+
+# electron
+/dist-electron
+
+# remotion bundle cache
+/.remotion-bundle

@@ -23,6 +23,7 @@ import {
 } from "@/remotion/types";
 import { refineForDisplay } from "@/remotion/textUtils";
 import { AVAILABLE_FONTS, getFontsForLanguage } from "@/remotion/fonts";
+import { apiFetch } from "@/lib/apiFetch";
 
 const RemotionPlayer = dynamic(() => import("./RemotionPlayerWrapper"), {
   ssr: false,
@@ -216,7 +217,7 @@ function EditorPage() {
     const savedVoice = savedPrefs?.voiceId;
 
     if (lang === "ja") {
-      fetch("/api/tts-voicevox-speakers")
+      apiFetch("/api/tts-voicevox-speakers")
         .then((r) => r.json())
         .then((d) => {
           if (d.speakers?.length) {
@@ -241,7 +242,7 @@ function EditorPage() {
         })
         .catch(() => {});
     } else {
-      fetch("/api/tts-voices")
+      apiFetch("/api/tts-voices")
         .then((r) => r.json())
         .then((d) => {
           if (d.voices?.length) {
@@ -286,7 +287,7 @@ function EditorPage() {
         if (style.characterRefImage) body.characterRefImage = style.characterRefImage;
       }
       console.log("[regenerateImage] style:", style, "body:", JSON.stringify(body).slice(0, 500));
-      const res = await fetch("/api/generate-image", {
+      const res = await apiFetch("/api/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -318,7 +319,7 @@ function EditorPage() {
     setGeneratingSfxIdx((prev) => new Set(prev).add(sceneIndex));
     try {
       const scene = scenes[sceneIndex];
-      const res = await fetch("/api/generate-sfx", {
+      const res = await apiFetch("/api/generate-sfx", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ motionStyle: scene.motionStyle, durationSeconds: 2 }),
@@ -343,7 +344,7 @@ function EditorPage() {
       const imgSrc = scene.mainImage.startsWith("http")
         ? scene.mainImage
         : `${window.location.origin}${scene.mainImage}`;
-      const res = await fetch("/api/generate-video-clip", {
+      const res = await apiFetch("/api/generate-video-clip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -380,7 +381,7 @@ function EditorPage() {
       const imgSrc = scene.mainImage.startsWith("http") ? scene.mainImage : `${window.location.origin}${scene.mainImage}`;
       setGeneratingVideoIdx((prev) => new Set(prev).add(idx));
       try {
-        const res = await fetch("/api/generate-video-clip", {
+        const res = await apiFetch("/api/generate-video-clip", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -464,7 +465,7 @@ function EditorPage() {
         if (style.characterRefImage) reqBody.characterRefImage = style.characterRefImage;
       }
       try {
-        const res = await fetch("/api/generate-image", {
+        const res = await apiFetch("/api/generate-image", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(reqBody),
@@ -511,7 +512,7 @@ function EditorPage() {
       const BATCH = 50;
       for (let b = 0; b < untranslated.length; b += BATCH) {
         const batch = untranslated.slice(b, b + BATCH);
-        const res = await fetch("/api/translate", {
+        const res = await apiFetch("/api/translate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ texts: batch.map(u => u.text), from: "ja", to: "ko" }),
@@ -535,7 +536,7 @@ function EditorPage() {
     const body = ttsLanguage === "ja"
       ? { text, speakerId: selectedVoice ? Number(selectedVoice) : undefined }
       : { text, voiceId: selectedVoice || undefined };
-    const res = await fetch(endpoint, {
+    const res = await apiFetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -588,7 +589,7 @@ function EditorPage() {
     setRegeneratingMotionIdx((prev) => new Set(prev).add(sceneIndex));
     try {
       const scene = scenes[sceneIndex];
-      const res = await fetch("/api/analyze-scenes", {
+      const res = await apiFetch("/api/analyze-scenes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -654,7 +655,7 @@ function EditorPage() {
     setIsRefining(true);
     try {
       const toRefine = indices ? indices.map((i) => targetScenes[i]) : targetScenes;
-      const res = await fetch("/api/refine-text", {
+      const res = await apiFetch("/api/refine-text", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -704,7 +705,7 @@ function EditorPage() {
   }, [scenes]);
 
   const autoGenerateSfx = useCallback((index: number, motionStyle?: string) => {
-    fetch("/api/generate-sfx", {
+    apiFetch("/api/generate-sfx", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ motionStyle: motionStyle || "quote", durationSeconds: 2 }),
@@ -878,7 +879,7 @@ function EditorPage() {
     setRenderProgress(0);
     setRenderUrl(null);
     try {
-      const res = await fetch("/api/render", {
+      const res = await apiFetch("/api/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(props),
@@ -889,7 +890,7 @@ function EditorPage() {
         let done = false;
         while (!done) {
           await new Promise((r) => setTimeout(r, 2000));
-          const poll = await fetch(`/api/render?jobId=${data.jobId}`);
+          const poll = await apiFetch(`/api/render?jobId=${data.jobId}`);
           const status = await poll.json();
           setRenderProgress(status.progress ?? 0);
           if (status.error) throw new Error(status.error);
@@ -1065,7 +1066,7 @@ function EditorPage() {
                         if (!v) return;
                         if (v.preview_url) { new Audio(v.preview_url).play(); return; }
                         try {
-                          const res = await fetch(`/api/tts-voicevox-preview?id=${v.voice_id}`);
+                          const res = await apiFetch(`/api/tts-voicevox-preview?id=${v.voice_id}`);
                           const d = await res.json();
                           if (d.previewUrl) { new Audio(d.previewUrl).play(); setVoices((prev) => prev.map((x) => x.voice_id === v.voice_id ? { ...x, preview_url: d.previewUrl } : x)); }
                         } catch { /* ignore */ }

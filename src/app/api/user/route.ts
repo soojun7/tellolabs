@@ -1,25 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-
-async function getOrCreateUser(userId: string) {
-  let user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) {
-    const { clerkClient } = await import("@clerk/nextjs/server");
-    const clerk = await clerkClient();
-    const clerkUser = await clerk.users.getUser(userId);
-    const email = clerkUser.emailAddresses?.[0]?.emailAddress || "";
-    user = await prisma.user.create({
-      data: {
-        id: userId,
-        email,
-        name: clerkUser.firstName || email.split("@")[0],
-        credits: 100,
-      },
-    });
-  }
-  return user;
-}
+import { ensureUser } from "@/lib/ensureUser";
 
 export async function GET() {
   const { userId } = await auth();
@@ -27,7 +9,7 @@ export async function GET() {
     return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   }
 
-  const user = await getOrCreateUser(userId);
+  const user = await ensureUser(userId);
 
   return NextResponse.json({
     id: user.id,
@@ -45,7 +27,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "인증이 필요합니다." }, { status: 401 });
   }
 
-  await getOrCreateUser(userId);
+  await ensureUser(userId);
 
   const body = await req.json();
   const { name, youtubeApiKey } = body as { name?: string; youtubeApiKey?: string };

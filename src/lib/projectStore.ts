@@ -1,4 +1,5 @@
 import type { SceneData } from "@/remotion/types";
+import { apiFetch } from "@/lib/apiFetch";
 
 export interface ThumbnailItem {
   imageUrl: string;
@@ -58,14 +59,14 @@ function toProject(raw: Record<string, unknown>): Project {
 }
 
 export async function getProjects(): Promise<Project[]> {
-  const res = await fetch("/api/projects");
+  const res = await apiFetch("/api/projects");
   if (!res.ok) return [];
   const data = await res.json();
   return (data as Record<string, unknown>[]).map(toProject);
 }
 
 export async function getProject(id: string): Promise<Project | null> {
-  const res = await fetch(`/api/projects/${id}`);
+  const res = await apiFetch(`/api/projects/${id}`);
   if (!res.ok) return null;
   return toProject(await res.json());
 }
@@ -74,7 +75,7 @@ export async function saveProject(
   proj: Omit<Project, "id" | "createdAt" | "updatedAt"> & { id?: string },
 ): Promise<Project> {
   if (proj.id) {
-    const res = await fetch(`/api/projects/${proj.id}`, {
+    const res = await apiFetch(`/api/projects/${proj.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -92,7 +93,7 @@ export async function saveProject(
     return toProject(await res.json());
   }
 
-  const res = await fetch("/api/projects", {
+  const res = await apiFetch("/api/projects", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -114,11 +115,11 @@ export async function saveProject(
 }
 
 export async function deleteProject(id: string): Promise<void> {
-  await fetch(`/api/projects/${id}`, { method: "DELETE" });
+  await apiFetch(`/api/projects/${id}`, { method: "DELETE" });
 }
 
 export async function renameProject(id: string, newTitle: string): Promise<void> {
-  await fetch(`/api/projects/${id}`, {
+  await apiFetch(`/api/projects/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title: newTitle }),
@@ -129,7 +130,7 @@ export async function toggleSaved(id: string): Promise<boolean> {
   const project = await getProject(id);
   if (!project) return false;
   const newSaved = !project.saved;
-  await fetch(`/api/projects/${id}`, {
+  await apiFetch(`/api/projects/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ saved: newSaved }),

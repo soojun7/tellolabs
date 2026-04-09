@@ -8,6 +8,7 @@ import {
   Link, Upload, Wand2, Eye, PenLine, Camera, Users, MapPin,
   Paintbrush, AArrowUp, AArrowDown,
 } from "lucide-react";
+import { apiFetch } from "@/lib/apiFetch";
 
 export interface TextSegment {
   text: string;
@@ -171,7 +172,7 @@ export default function ThumbnailEditor({
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const res = await apiFetch("/api/upload", { method: "POST", body: fd });
       const data = await res.json();
       if (data.url) setRefImage(data.url);
     } catch {
@@ -189,7 +190,7 @@ export default function ThumbnailEditor({
     setAnalysis(null);
     try {
       const imgUrl = refImage.startsWith("/") ? `${window.location.origin}${refImage}` : refImage;
-      const res = await fetch("/api/analyze-thumbnail", {
+      const res = await apiFetch("/api/analyze-thumbnail", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageUrl: imgUrl }),
@@ -219,7 +220,7 @@ export default function ThumbnailEditor({
         staging: custStaging.trim() || undefined,
       };
 
-      const res = await fetch("/api/generate-thumbnail", {
+      const res = await apiFetch("/api/generate-thumbnail", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -250,7 +251,7 @@ export default function ThumbnailEditor({
   const handleSuggestCopy = useCallback(async () => {
     setLoadingCopy(true);
     try {
-      const res = await fetch("/api/suggest-thumbnail-copy", {
+      const res = await apiFetch("/api/suggest-thumbnail-copy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

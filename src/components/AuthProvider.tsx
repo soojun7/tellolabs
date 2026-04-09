@@ -1,7 +1,9 @@
 "use client";
 
-import { ClerkProvider } from "@clerk/nextjs";
+import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { koKR } from "@clerk/localizations";
+import { useEffect } from "react";
+import { setTokenGetter } from "@/lib/apiFetch";
 
 const customKo = {
   ...koKR,
@@ -38,6 +40,14 @@ const customKo = {
   },
 } as typeof koKR;
 
+function TokenBridge({ children }: { children: React.ReactNode }) {
+  const { getToken } = useAuth();
+  useEffect(() => {
+    setTokenGetter(() => getToken());
+  }, [getToken]);
+  return <>{children}</>;
+}
+
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProvider
@@ -49,7 +59,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         },
       }}
     >
-      {children}
+      <TokenBridge>{children}</TokenBridge>
     </ClerkProvider>
   );
 }
