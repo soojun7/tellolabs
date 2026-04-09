@@ -52,19 +52,42 @@ export async function POST(req: NextRequest) {
 
       console.log(`[render:${jobId}] Starting Lambda render, ${scenes?.length || 0} scenes`);
 
-      const { renderId, bucketName } = await renderMediaOnLambda({
-        region: REGION,
-        functionName: FUNCTION_NAME,
-        serveUrl: SERVE_URL,
-        composition: "MotionVideo",
-        inputProps: { scenes, fps, sceneDurationFrames },
-        codec: "h264",
-        imageFormat: "jpeg",
-        jpegQuality: 80,
-        framesPerLambda: 300,
-        privacy: "public",
-        maxRetries: 1,
-      });
+      let renderId: string | undefined;
+      let bucketName: string | undefined;
+      const MAX_ATTEMPTS = 3;
+
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          const result = await renderMediaOnLambda({
+            region: REGION,
+            functionName: FUNCTION_NAME,
+            serveUrl: SERVE_URL,
+            composition: "MotionVideo",
+            inputProps: { scenes, fps, sceneDurationFrames },
+            codec: "h264",
+            imageFormat: "jpeg",
+            jpegQuality: 80,
+            framesPerLambda: 800,
+            privacy: "public",
+            maxRetries: 1,
+          });
+          renderId = result.renderId;
+          bucketName = result.bucketName;
+          break;
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          const isRateLimit = msg.includes("Rate Exceeded") || msg.includes("Concurrency");
+          if (isRateLimit && attempt < MAX_ATTEMPTS) {
+            const wait = attempt * 15_000;
+            console.warn(`[render:${jobId}] Rate limit hit, retry ${attempt}/${MAX_ATTEMPTS} in ${wait / 1000}s`);
+            await new Promise((r) => setTimeout(r, wait));
+          } else {
+            throw err;
+          }
+        }
+      }
+
+      if (!renderId || !bucketName) throw new Error("Failed to start render");
 
       console.log(`[render:${jobId}] renderId=${renderId}, bucket=${bucketName}`);
 

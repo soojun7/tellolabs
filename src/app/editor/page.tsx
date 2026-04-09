@@ -24,7 +24,8 @@ import {
 import { refineForDisplay } from "@/remotion/textUtils";
 import { AVAILABLE_FONTS, getFontsForLanguage } from "@/remotion/fonts";
 import { apiFetch } from "@/lib/apiFetch";
-import RenderPanel, { RenderConfirmDialog, type RenderJob } from "@/components/RenderPanel";
+import { RenderConfirmDialog } from "@/components/RenderPanel";
+import { useRender } from "@/context/RenderContext";
 
 const RemotionPlayer = dynamic(() => import("./RemotionPlayerWrapper"), {
   ssr: false,
@@ -87,16 +88,13 @@ export default function EditorPageWrapper() {
 function EditorPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { startRender, isRendering } = useRender();
   const [scenes, setScenes] = useState<SceneData[]>([]);
   const [selectedScene, setSelectedScene] = useState(0);
   const [subtitleOpen, setSubtitleOpen] = useState(false);
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
   const [seekFrame, setSeekFrame] = useState<number | undefined>(undefined);
-  const [isRendering, setIsRendering] = useState(false);
-  const [renderProgress, setRenderProgress] = useState(0);
   const [renderUrl, setRenderUrl] = useState<string | null>(null);
-  const [renderingScene, setRenderingScene] = useState<number | null>(null);
-  const [renderJobs, setRenderJobs] = useState<RenderJob[]>([]);
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; props: VideoProps | null; sceneCount: number; sceneIdx: number | null }>({ open: false, props: null, sceneCount: 0, sceneIdx: null });
   const [isRefining, setIsRefining] = useState(false);
   const [generatingImageIdx, setGeneratingImageIdx] = useState<Set<number>>(new Set());
@@ -877,60 +875,6 @@ function EditorPage() {
     setSelectedScene((prev) => Math.max(0, prev - 1));
   }, []);
 
-  const updateJob = useCallback((id: string, patch: Partial<RenderJob>) => {
-    setRenderJobs((prev) => prev.map((j) => (j.id === id ? { ...j, ...patch } : j)));
-  }, []);
-
-  const doRender = useCallback(async (props: VideoProps, sceneIdx: number | null = null) => {
-    const jobId = `local-${Date.now()}`;
-    const label = sceneIdx !== null ? `장면 ${sceneIdx + 1} 내보내기` : `전체 영상 내보내기 (${props.scenes.length}장면)`;
-    const newJob: RenderJob = { id: jobId, label, progress: 0, done: false, startedAt: Date.now(), sceneCount: props.scenes.length };
-
-    setRenderJobs((prev) => [newJob, ...prev]);
-    setIsRendering(true);
-    setRenderProgress(0);
-    setRenderUrl(null);
-    if (sceneIdx !== null) setRenderingScene(sceneIdx);
-
-    try {
-      const res = await apiFetch("/api/render", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(props),
-      });
-      if (!res.ok) throw new Error(`Render failed: ${res.status}`);
-      const data = await res.json();
-      if (data.jobId) {
-        let done = false;
-        while (!done) {
-          await new Promise((r) => setTimeout(r, 2000));
-          const poll = await apiFetch(`/api/render?jobId=${data.jobId}`);
-          const status = await poll.json();
-          setRenderProgress(status.progress ?? 0);
-          updateJob(jobId, { progress: status.progress ?? 0 });
-          if (status.error) throw new Error(status.error);
-          if (status.done) {
-            done = true;
-            if (status.url) {
-              setRenderUrl(status.url);
-              updateJob(jobId, { done: true, progress: 1, url: status.url });
-              if (projectId) {
-                const p = await getProject(projectId);
-                if (p) await saveProject({ ...p, renderUrl: status.url });
-              }
-            }
-          }
-        }
-      }
-    } catch (err: unknown) {
-      const msg = (err as Error).message;
-      updateJob(jobId, { done: true, error: msg });
-    } finally {
-      setIsRendering(false);
-      setRenderingScene(null);
-    }
-  }, [updateJob, projectId]);
-
   const estimateRenderSeconds = useCallback((sceneCount: number) => {
     return Math.max(60, sceneCount * 8);
   }, []);
@@ -946,21 +890,17 @@ function EditorPage() {
 
   const handleConfirmRender = useCallback(() => {
     if (confirmDialog.props) {
-      doRender(confirmDialog.props, confirmDialog.sceneIdx);
+      const sceneIdx = confirmDialog.sceneIdx;
+      const label = sceneIdx !== null
+        ? `장면 ${sceneIdx + 1} 내보내기`
+        : `전체 영상 내보내기 (${confirmDialog.props.scenes.length}장면)`;
+      startRender(confirmDialog.props, label, projectId || undefined);
     }
     setConfirmDialog({ open: false, props: null, sceneCount: 0, sceneIdx: null });
-  }, [confirmDialog, doRender]);
+  }, [confirmDialog, startRender, projectId]);
 
   const handleCancelRender = useCallback(() => {
     setConfirmDialog({ open: false, props: null, sceneCount: 0, sceneIdx: null });
-  }, []);
-
-  const handleDismissJob = useCallback((id: string) => {
-    setRenderJobs((prev) => prev.filter((j) => j.id !== id));
-  }, []);
-
-  const handleDismissAllJobs = useCallback(() => {
-    setRenderJobs([]);
   }, []);
 
   if (scenes.length === 0) {
@@ -1022,8 +962,8 @@ function EditorPage() {
             disabled={isRendering}
             className="flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1.5 text-[11px] font-medium bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50"
           >
-            {isRendering && renderingScene === null ? (
-              <><RotateCcw size={12} className="animate-spin" /> {Math.round(renderProgress * 100)}%</>
+            {isRendering ? (
+              <><RotateCcw size={12} className="animate-spin" /> 렌더링 중</>
             ) : (
               <><Download size={12} /> <span className="hidden sm:inline">내보내기</span></>
             )}
@@ -1965,10 +1905,10 @@ function EditorPage() {
                   disabled={isRendering}
                   className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-medium bg-ed-surface border border-ed-border rounded-xl hover:bg-ed-surface-active transition-colors disabled:opacity-40"
                 >
-                  {isRendering && renderingScene === selectedScene ? (
+                  {isRendering ? (
                     <>
                       <RotateCcw size={13} className="animate-spin" />
-                      {Math.round(renderProgress * 100)}%
+                      렌더링 중
                     </>
                   ) : (
                     <>
@@ -1993,7 +1933,6 @@ function EditorPage() {
       </div>
       </div>
 
-      <RenderPanel jobs={renderJobs} onDismiss={handleDismissJob} onDismissAll={handleDismissAllJobs} />
       <RenderConfirmDialog
         open={confirmDialog.open}
         sceneCount={confirmDialog.sceneCount}

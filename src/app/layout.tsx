@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "@/components/AuthProvider";
 import ThemeProvider from "@/components/ThemeProvider";
+import { RenderProvider } from "@/context/RenderContext";
+import GlobalRenderPanel from "@/components/GlobalRenderPanel";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,7 +33,12 @@ export default function RootLayout({
     >
       <body suppressHydrationWarning className="h-full font-sans">
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <RenderProvider>
+              {children}
+              <GlobalRenderPanel />
+            </RenderProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
