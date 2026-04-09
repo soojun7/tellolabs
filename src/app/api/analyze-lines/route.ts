@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth, useCredits } from "@/lib/apiAuth";
 
 export const maxDuration = 120;
 
@@ -148,6 +149,11 @@ async function analyzeChunk(
 }
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+  const creditResult = await useCredits(authResult.userId, "analyze-lines");
+  if (creditResult instanceof NextResponse) return creditResult;
+
   const { lines } = (await req.json()) as { lines: string[] };
 
   if (!lines?.length) {

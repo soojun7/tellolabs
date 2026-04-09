@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/apiAuth";
 
 const PEXELS_KEY = process.env.PEXELS_API_KEY!;
 const SUPERMEME_KEY = process.env.SUPERMEME_API_KEY!;
@@ -25,6 +26,9 @@ interface LineResult {
 }
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+
   const body = await req.json();
   const script: string = body.script ?? "";
 

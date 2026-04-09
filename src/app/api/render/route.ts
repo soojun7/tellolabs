@@ -3,6 +3,7 @@ import {
   renderMediaOnLambda,
   getRenderProgress,
 } from "@remotion/lambda/client";
+import { requireAuth, useCredits } from "@/lib/apiAuth";
 
 const REGION = (process.env.REMOTION_AWS_REGION || "ap-northeast-2") as
   | "ap-northeast-2"
@@ -33,6 +34,11 @@ const jobs = new Map<
 >();
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+  const creditResult = await useCredits(authResult.userId, "render");
+  if (creditResult instanceof NextResponse) return creditResult;
+
   const body = await req.json();
   const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 

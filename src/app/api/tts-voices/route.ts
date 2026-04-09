@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/apiAuth";
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY ?? "";
 
 export async function GET() {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+
   if (!ELEVENLABS_API_KEY) {
     return NextResponse.json({ error: "ELEVENLABS_API_KEY not set" }, { status: 500 });
   }

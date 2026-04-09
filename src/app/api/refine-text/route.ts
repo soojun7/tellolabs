@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth, useCredits } from "@/lib/apiAuth";
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY!;
 
@@ -15,6 +16,11 @@ interface RefinedOutput {
 }
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+  const creditResult = await useCredits(authResult.userId, "refine-text");
+  if (creditResult instanceof NextResponse) return creditResult;
+
   const body = await req.json();
   const scenes: SceneInput[] = body.scenes;
 

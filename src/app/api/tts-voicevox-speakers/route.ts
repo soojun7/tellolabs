@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/apiAuth";
 
 const VOICEVOX_URL = process.env.VOICEVOX_URL ?? "http://localhost:50021";
 
@@ -66,6 +67,9 @@ const STYLE_KO: Record<string, string> = {
 };
 
 export async function GET() {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const res = await fetch(`${VOICEVOX_URL}/speakers`, {
       next: { revalidate: 300 },

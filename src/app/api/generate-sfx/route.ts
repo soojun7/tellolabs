@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { uploadToR2, isR2Configured } from "@/lib/r2";
+import { requireAuth, useCredits } from "@/lib/apiAuth";
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY ?? "";
 
@@ -55,6 +56,11 @@ function estimateMp3Duration(buf: Buffer): number {
 }
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+  const creditResult = await useCredits(authResult.userId, "generate-sfx");
+  if (creditResult instanceof NextResponse) return creditResult;
+
   try {
     const { motionStyle, prompt, durationSeconds } = await req.json();
 

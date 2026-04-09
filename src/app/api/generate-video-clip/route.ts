@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { uploadToR2, isR2Configured } from "@/lib/r2";
+import { requireAuth, useCredits } from "@/lib/apiAuth";
 
 const WAVESPEED_BASE = "https://api.wavespeed.ai/api/v3";
 const VIDEO_MODEL = "minimax/hailuo-02/fast";
@@ -15,6 +16,11 @@ function snapDuration(seconds: number): number {
 }
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+  const creditResult = await useCredits(authResult.userId, "generate-video-clip");
+  if (creditResult instanceof NextResponse) return creditResult;
+
   const apiKey = process.env.WAVESPEED_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "WAVESPEED_API_KEY not set" }, { status: 500 });

@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/apiAuth";
 
 const API_KEY = process.env.SUPERMEME_API_KEY!;
 const ENDPOINT = "https://app.supermeme.ai/api/v2/meme/image";
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+
   const body = await req.json();
   const text: string = body.text ?? "";
   const count: number = Math.min(body.count ?? 6, 12);

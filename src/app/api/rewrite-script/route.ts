@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth, useCredits } from "@/lib/apiAuth";
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY!;
 
@@ -17,6 +18,11 @@ const DURATION_GUIDE: Record<number, { chars: string; minChars: number; lines: s
 };
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+  const creditResult = await useCredits(authResult.userId, "rewrite-script");
+  if (creditResult instanceof NextResponse) return creditResult;
+
   try {
     const body: RewriteBody = await req.json();
     const { originalScript, targetLanguage, guidelines, durationMinutes } = body;

@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/apiAuth";
 
 const API_KEY = process.env.PEXELS_API_KEY!;
 const BASE = "https://api.pexels.com";
 
 export async function GET(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+
   const { searchParams } = req.nextUrl;
   const query = searchParams.get("q") ?? "";
   const type = searchParams.get("type") ?? "photos"; // "photos" | "videos"

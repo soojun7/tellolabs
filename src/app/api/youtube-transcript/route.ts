@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { YouTubeTranscriptApi } from "youtube-transcript-api-js";
+import { requireAuth } from "@/lib/apiAuth";
 
 function extractVideoId(url: string): string | null {
   const patterns = [
@@ -14,6 +15,9 @@ function extractVideoId(url: string): string | null {
 }
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const body = await req.json();
     const { url, startTime, endTime, languages } = body as {

@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { readFile } from "fs/promises";
 import { join } from "path";
+import { requireAuth } from "@/lib/apiAuth";
 
 const RUNWARE_KEY = process.env.RUNWARE_API_KEY!;
 const RUNWARE_URL = "https://api.runware.ai/v1";
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+
   const { images } = (await req.json()) as { images: string[] };
 
   if (!images?.length) {

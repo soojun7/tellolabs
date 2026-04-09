@@ -3,14 +3,26 @@ import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { uploadToR2, isR2Configured } from "@/lib/r2";
+import { requireAuth } from "@/lib/apiAuth";
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
+
+    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+    if (file.size > MAX_SIZE) {
+      return NextResponse.json(
+        { error: "파일 크기가 10MB를 초과합니다" },
+        { status: 413 },
+      );
     }
 
     const ext = file.name.split(".").pop()?.toLowerCase() || "png";

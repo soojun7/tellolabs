@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/apiAuth";
 
 const API_KEY = process.env.SERPAPI_API_KEY!;
 const ENDPOINT = "https://serpapi.com/search.json";
 
 export async function GET(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+
   const { searchParams } = req.nextUrl;
   const query = searchParams.get("q") ?? "";
   const num = searchParams.get("num") ?? "12";

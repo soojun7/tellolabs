@@ -6,6 +6,7 @@ import { randomUUID } from "crypto";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { uploadFileToR2, isR2Configured } from "@/lib/r2";
+import { requireAuth, useCredits } from "@/lib/apiAuth";
 
 const execFileAsync = promisify(execFile);
 
@@ -63,6 +64,11 @@ async function getActualDuration(filePath: string): Promise<number> {
 }
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+  const creditResult = await useCredits(authResult.userId, "tts-voicevox");
+  if (creditResult instanceof NextResponse) return creditResult;
+
   try {
     const { text, speakerId } = await req.json();
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth, useCredits } from "@/lib/apiAuth";
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY!;
 
@@ -11,6 +12,11 @@ interface CopyBody {
 }
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+  const creditResult = await useCredits(authResult.userId, "suggest-thumbnail-copy");
+  if (creditResult instanceof NextResponse) return creditResult;
+
   try {
     const body: CopyBody = await req.json();
     const { script, referenceImageUrl, referenceTextElements, referenceSummary, language = "ko" } = body;

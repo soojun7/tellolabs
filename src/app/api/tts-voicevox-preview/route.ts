@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir, stat } from "fs/promises";
 import path from "path";
+import { requireAuth } from "@/lib/apiAuth";
 
 const VOICEVOX_URL = process.env.VOICEVOX_URL ?? "http://localhost:50021";
 
 export async function GET(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+
   const speakerId = req.nextUrl.searchParams.get("id");
   if (!speakerId) {
     return NextResponse.json({ error: "id required" }, { status: 400 });

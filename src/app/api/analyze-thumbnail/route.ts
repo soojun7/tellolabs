@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import { join } from "path";
+import { requireAuth, useCredits } from "@/lib/apiAuth";
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY!;
 
@@ -35,6 +36,11 @@ async function loadImageAsBase64(imageUrl: string): Promise<{ data: string; medi
 }
 
 export async function POST(req: NextRequest) {
+  const authResult = await requireAuth();
+  if (authResult instanceof NextResponse) return authResult;
+  const creditResult = await useCredits(authResult.userId, "analyze-thumbnail");
+  if (creditResult instanceof NextResponse) return creditResult;
+
   const { imageUrl } = (await req.json()) as { imageUrl: string };
 
   if (!imageUrl) {
