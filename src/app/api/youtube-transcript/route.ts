@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchTranscript } from "youtube-transcript-plus";
 import { requireAuth } from "@/lib/apiAuth";
-import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+
+const YT_TRANSCRIPT_API = "https://www.youtube-transcript.io/api/transcripts";
+const YT_TRANSCRIPT_TOKEN = process.env.YT_TRANSCRIPT_API_TOKEN!;
 
 const BROWSER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
@@ -20,71 +21,105 @@ function extractVideoId(url: string): string | null {
   return null;
 }
 
-async function fetchViaLibrary(
-  videoId: string,
-  languages: string[],
-): Promise<{ text: string; start: number; duration: number }[]> {
-  for (const lang of languages) {
-    try {
-      const items = await fetchTranscript(videoId, {
-        lang,
-        userAgent: BROWSER_UA,
-        retries: 2,
-        retryDelay: 1500,
-      });
-      if (items && items.length > 0) {
-        return items.map((i: { text: string; offset: number; duration: number }) => ({
-          text: i.text,
-          start: (i.offset ?? 0) / 1000,
-          duration: (i.duration ?? 0) / 1000,
-        }));
-      }
-    } catch {
-      continue;
-    }
-  }
-  throw new Error("LIBRARY_FAILED");
+interface TranscriptSnippet {
+  text: string;
+  start: number;
+  duration: number;
 }
 
-async function fetchViaYouTubeDataApi(
-  videoId: string,
-  apiKey: string,
-  languages: string[],
-): Promise<{ text: string; start: number; duration: number }[]> {
-  const listUrl = `https://www.googleapis.com/youtube/v3/captions?part=snippet&videoId=${videoId}&key=${apiKey}`;
-  const listRes = await fetch(listUrl);
-  if (!listRes.ok) throw new Error("YouTube API captions.list failed");
+async function fetchViaTranscriptIo(videoId: string): Promise<TranscriptSnippet[]> {
+  const res = await fetch(YT_TRANSCRIPT_API, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${YT_TRANSCRIPT_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ ids: [videoId] }),
+  });
 
-  const listData = await listRes.json();
-  const tracks = listData.items as {
-    id: string;
-    snippet: { language: string; trackKind: string };
-  }[];
+  if (res.status === 429) {
+    throw new Error("API_RATE_LIMIT");
+  }
+  if (!res.ok) {
+    throw new Error(`youtube-transcript.io: ${res.status}`);
+  }
 
-  if (!tracks || tracks.length === 0) {
+  const data = await res.json();
+  const videoData = Array.isArray(data) ? data[0] : data;
+
+  if (!videoData || videoData.error) {
+    throw new Error(videoData?.error || "No transcript returned");
+  }
+
+  const transcript = videoData.transcript;
+  if (!Array.isArray(transcript) || transcript.length === 0) {
     throw new Error("이 영상에는 자막이 없습니다.");
   }
 
-  let trackLang = "";
+  return transcript.map((t: { text: string; start?: number; offset?: number; duration?: number }) => ({
+    text: t.text,
+    start: t.start ?? t.offset ?? 0,
+    duration: t.duration ?? 0,
+  }));
+}
+
+async function fetchViaInnerTube(
+  videoId: string,
+  languages: string[],
+): Promise<TranscriptSnippet[]> {
+  const innertubeRes = await fetch(
+    "https://www.youtube.com/youtubei/v1/player?prettyPrint=false",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": BROWSER_UA,
+      },
+      body: JSON.stringify({
+        context: {
+          client: {
+            clientName: "WEB",
+            clientVersion: "2.20240101.00.00",
+            hl: "ko",
+          },
+        },
+        videoId,
+      }),
+    },
+  );
+
+  if (!innertubeRes.ok) throw new Error("InnerTube request failed");
+
+  const playerData = await innertubeRes.json();
+  const captionTracks =
+    playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks as
+      | { baseUrl: string; languageCode: string }[]
+      | undefined;
+
+  if (!captionTracks || captionTracks.length === 0) {
+    throw new Error("이 영상에는 자막이 없습니다.");
+  }
+
+  let selectedTrack = captionTracks[0];
   for (const lang of languages) {
-    const found = tracks.find((t) => t.snippet.language === lang);
+    const found = captionTracks.find((t) => t.languageCode === lang);
     if (found) {
-      trackLang = lang;
+      selectedTrack = found;
       break;
     }
   }
-  if (!trackLang) {
-    trackLang = tracks[0].snippet.language;
-  }
 
-  const timedTextUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=${trackLang}&fmt=json3`;
-  const ttRes = await fetch(timedTextUrl, {
+  const captionUrl = selectedTrack.baseUrl + "&fmt=json3";
+  const ttRes = await fetch(captionUrl, {
     headers: { "User-Agent": BROWSER_UA },
   });
 
-  if (!ttRes.ok) throw new Error("timedtext fetch failed");
+  if (!ttRes.ok) throw new Error("Caption fetch failed");
 
-  const ttData = await ttRes.json();
+  const text = await ttRes.text();
+  if (!text || text.length < 10) throw new Error("Empty caption response");
+
+  const ttData = JSON.parse(text);
   const events = ttData.events as {
     tStartMs?: number;
     dDurationMs?: number;
@@ -122,27 +157,16 @@ export async function POST(req: NextRequest) {
     }
 
     const langs = languages || ["ko", "ja", "en"];
-    let snippets: { text: string; start: number; duration: number }[];
+    let snippets: TranscriptSnippet[];
 
     try {
-      snippets = await fetchViaLibrary(videoId, langs);
+      snippets = await fetchViaTranscriptIo(videoId);
     } catch {
-      const user = await prisma.user.findUnique({
-        where: { id: authResult.userId },
-        select: { youtubeApiKey: true },
-      });
-
-      if (user?.youtubeApiKey) {
-        try {
-          snippets = await fetchViaYouTubeDataApi(videoId, user.youtubeApiKey, langs);
-        } catch (apiErr: unknown) {
-          const msg = apiErr instanceof Error ? apiErr.message : String(apiErr);
-          throw new Error(`자막을 가져올 수 없습니다. YouTube API 오류: ${msg}`);
-        }
-      } else {
-        throw new Error(
-          "YouTube 자막 추출에 실패했습니다. 마이페이지에서 YouTube API Key를 등록하면 더 안정적으로 자막을 가져올 수 있습니다.",
-        );
+      try {
+        snippets = await fetchViaInnerTube(videoId, langs);
+      } catch (fallbackErr: unknown) {
+        const msg = fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+        throw new Error(`자막을 가져올 수 없습니다: ${msg}`);
       }
     }
 
