@@ -85,7 +85,6 @@ export async function POST(req: NextRequest) {
             privacy: "public",
             maxRetries: 2,
             timeoutInMilliseconds: 300_000,
-            delayRenderTimeoutInMilliseconds: 90_000,
           });
           renderId = result.renderId;
           bucketName = result.bucketName;
