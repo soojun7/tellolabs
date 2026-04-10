@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, useCredits } from "@/lib/apiAuth";
+import { fetchWithRetry } from "@/lib/fetchRetry";
 
 export const dynamic = "force-dynamic";
 
@@ -565,7 +566,7 @@ JSON 배열로 응답 (코드블록 없이):
 infographicData가 없는 스타일은 null로, displayText/sourceLabel이 없으면 빈 문자열로.`;
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

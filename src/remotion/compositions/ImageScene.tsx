@@ -65,6 +65,8 @@ export const ImageScene: React.FC<ImageSceneProps> = ({ scene }) => {
           }}
           muted
           toneMapped={false}
+          delayRenderTimeoutInMilliseconds={90000}
+          delayRenderRetries={3}
         />
       ) : scene.mainImage ? (
         <Img

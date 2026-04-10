@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-import { Bookmark, BookmarkCheck, Trash2, Film, Clock, Pencil, Check, X } from "lucide-react";
+import { Bookmark, BookmarkCheck, Trash2, Film, Clock, Pencil, Check, X, Loader2 } from "lucide-react";
 import { getSavedProjects, toggleSaved, deleteProject, renameProject, type Project } from "@/lib/projectStore";
 
 function formatDate(ts: number) {
@@ -22,12 +22,13 @@ function formatDate(ts: number) {
 export default function SavedPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    getSavedProjects().then(setProjects);
+    getSavedProjects().then((p) => { setProjects(p); setLoading(false); });
   }, []);
 
   const handleOpen = (proj: Project) => {
@@ -79,7 +80,12 @@ export default function SavedPage() {
             </span>
           </div>
 
-          {projects.length === 0 ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <Loader2 size={28} className="animate-spin text-accent mb-3" />
+              <p className="text-sm text-text-secondary">데이터를 불러오고 있습니다...</p>
+            </div>
+          ) : projects.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-text-secondary">
               <Bookmark size={48} className="mb-4 opacity-30" />
               <p className="text-lg mb-2">저장된 프로젝트가 없습니다</p>

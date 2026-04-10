@@ -47,24 +47,32 @@ export async function useCredits(
   const cost = CREDIT_COSTS[operation];
   if (!cost) return -1; // free operation
 
-  const user = await ensureUser(userId);
+  await ensureUser(userId);
 
-  if (user.credits < cost) {
+  const updated = await prisma.user.updateMany({
+    where: { id: userId, credits: { gte: cost } },
+    data: { credits: { decrement: cost } },
+  });
+
+  if (updated.count === 0) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { credits: true },
+    });
     return NextResponse.json(
       {
         error: "크레딧이 부족합니다",
         required: cost,
-        remaining: user.credits,
+        remaining: user?.credits ?? 0,
       },
       { status: 402 },
     );
   }
 
-  const updated = await prisma.user.update({
+  const user = await prisma.user.findUnique({
     where: { id: userId },
-    data: { credits: { decrement: cost } },
     select: { credits: true },
   });
 
-  return updated.credits;
+  return user?.credits ?? 0;
 }

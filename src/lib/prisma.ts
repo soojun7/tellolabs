@@ -3,6 +3,8 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
+const DB_POOL_MAX = parseInt(process.env.DB_POOL_MAX || "20", 10);
+
 function createClient(): PrismaClient {
   const url = process.env.DATABASE_URL;
   if (!url) {
@@ -11,6 +13,7 @@ function createClient(): PrismaClient {
   const needsSsl = url.includes("render.com") || url.includes("neon.tech") || url.includes("supabase");
   const adapter = new PrismaPg({
     connectionString: url,
+    max: DB_POOL_MAX,
     ...(needsSsl && { ssl: { rejectUnauthorized: false } }),
   });
   return new PrismaClient({ adapter });

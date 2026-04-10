@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { requireAuth } from "@/lib/apiAuth";
+import { fetchWithRetry } from "@/lib/fetchRetry";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      const res = await fetch(RUNWARE_URL, {
+      const res = await fetchWithRetry(RUNWARE_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

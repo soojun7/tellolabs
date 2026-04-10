@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import {
   FolderOpen, Trash2, Bookmark, BookmarkCheck, Film, Clock,
-  Pencil, Check, X, CheckSquare, Square, MinusSquare,
+  Pencil, Check, X, CheckSquare, Square, MinusSquare, Loader2,
 } from "lucide-react";
 import { getProjects, deleteProject, toggleSaved, renameProject, MAX_PROJECTS, type Project } from "@/lib/projectStore";
 
@@ -25,13 +25,14 @@ function formatDate(ts: number) {
 export default function ProjectsPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    getProjects().then(setProjects);
+    getProjects().then((p) => { setProjects(p); setLoading(false); });
   }, []);
 
   const handleOpen = (proj: Project) => {
@@ -134,7 +135,12 @@ export default function ProjectsPage() {
             )}
           </div>
 
-          {projects.length === 0 ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <Loader2 size={28} className="animate-spin text-accent mb-3" />
+              <p className="text-sm text-text-secondary">데이터를 불러오고 있습니다...</p>
+            </div>
+          ) : projects.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-text-secondary">
               <FolderOpen size={48} className="mb-4 opacity-30" />
               <p className="text-lg mb-2">아직 프로젝트가 없습니다</p>

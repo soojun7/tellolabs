@@ -1,7 +1,6 @@
 FROM node:20-slim AS base
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
     fonts-noto-cjk \
     fonts-noto-color-emoji \
     ca-certificates \

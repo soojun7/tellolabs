@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import { uploadToR2, isR2Configured } from "@/lib/r2";
+import { uploadToR2, streamUploadToR2, isR2Configured } from "@/lib/r2";
 import { requireAuth, useCredits } from "@/lib/apiAuth";
+import { fetchWithRetry } from "@/lib/fetchRetry";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
   const snappedDur = snapDuration(durationSeconds ?? 6);
 
   try {
-    const createResp = await fetch(`${WAVESPEED_BASE}/${VIDEO_MODEL}`, {
+    const createResp = await fetchWithRetry(`${WAVESPEED_BASE}/${VIDEO_MODEL}`, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -107,13 +108,17 @@ export async function POST(req: NextRequest) {
     if (!videoResp.ok) {
       return NextResponse.json({ error: "Failed to download video" }, { status: 502 });
     }
-    const videoBuf = Buffer.from(await videoResp.arrayBuffer());
     const filename = `clip-${randomUUID()}.mp4`;
+    const contentLength = parseInt(videoResp.headers.get("content-length") || "0", 10) || undefined;
 
     let resultUrl: string;
-    if (isR2Configured()) {
+    if (isR2Configured() && videoResp.body) {
+      resultUrl = await streamUploadToR2(`videos/${filename}`, videoResp.body, contentLength);
+    } else if (isR2Configured()) {
+      const videoBuf = Buffer.from(await videoResp.arrayBuffer());
       resultUrl = await uploadToR2(`videos/${filename}`, videoBuf);
     } else {
+      const videoBuf = Buffer.from(await videoResp.arrayBuffer());
       const { writeFile, mkdir } = await import("fs/promises");
       const { join } = await import("path");
       const localDir = join(process.cwd(), "public", "videos");

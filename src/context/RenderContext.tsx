@@ -99,6 +99,17 @@ export function RenderProvider({ children }: { children: React.ReactNode }) {
 
   const isRendering = jobs.some((j) => !j.done && !j.error);
 
+  useEffect(() => {
+    if (!isRendering) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isRendering]);
+
   return (
     <RenderContext.Provider value={{ jobs, startRender, dismissJob, dismissAllJobs, isRendering }}>
       {children}

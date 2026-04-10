@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, useCredits } from "@/lib/apiAuth";
+import { fetchWithRetry } from "@/lib/fetchRetry";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -107,7 +108,7 @@ async function analyzeChunk(
   const prompt = buildPrompt(lines, globalOffset, totalLines);
   const maxTokens = Math.max(2048, lines.length * 60);
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

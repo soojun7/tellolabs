@@ -3,7 +3,9 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
+import { Upload } from "@aws-sdk/lib-storage";
 import { readFile } from "fs/promises";
+import { Readable } from "stream";
 
 const ACCOUNT_ID = process.env.R2_ACCOUNT_ID!;
 const BUCKET = process.env.R2_BUCKET_NAME || "tellolabs";
@@ -67,6 +69,32 @@ export async function deleteFromR2(key: string): Promise<void> {
 }
 
 export function r2Url(key: string): string {
+  return `${PUBLIC_URL}/${key}`;
+}
+
+export async function streamUploadToR2(
+  key: string,
+  stream: ReadableStream | Readable,
+  contentLength?: number,
+): Promise<string> {
+  const nodeStream = stream instanceof Readable
+    ? stream
+    : Readable.fromWeb(stream as import("stream/web").ReadableStream);
+
+  const upload = new Upload({
+    client: s3,
+    params: {
+      Bucket: BUCKET,
+      Key: key,
+      Body: nodeStream,
+      ContentType: guessMime(key),
+      ...(contentLength ? { ContentLength: contentLength } : {}),
+    },
+    queueSize: 1,
+    partSize: 5 * 1024 * 1024,
+  });
+
+  await upload.done();
   return `${PUBLIC_URL}/${key}`;
 }
 

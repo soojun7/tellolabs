@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, useCredits } from "@/lib/apiAuth";
+import { fetchWithRetry } from "@/lib/fetchRetry";
 
 export const dynamic = "force-dynamic";
 
@@ -80,7 +81,7 @@ ${originalScript.slice(0, 12000)}
 ## 출력
 ${dur}분 분량(최소 ${guide.minChars}자 이상, ${guide.chars})의 새로운 ${langName} 나레이션 대본만 출력하세요. 한 줄 100~200자를 유지하세요. 반드시 끝까지 완성하세요.`;
 
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

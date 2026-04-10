@@ -23,17 +23,30 @@ const REGION = (process.env.REMOTION_AWS_REGION || "ap-northeast-2") as
 const FUNCTION_NAME = process.env.REMOTION_FUNCTION_NAME!;
 const SERVE_URL = process.env.REMOTION_SERVE_URL!;
 
-const jobs = new Map<
-  string,
-  {
-    progress: number;
-    done: boolean;
-    url?: string;
-    error?: string;
-    renderId?: string;
-    bucketName?: string;
+interface RenderJobState {
+  progress: number;
+  done: boolean;
+  url?: string;
+  error?: string;
+  renderId?: string;
+  bucketName?: string;
+  createdAt: number;
+}
+
+const MAX_JOBS = 200;
+const JOB_TTL_MS = 30 * 60 * 1000;
+
+const jobs = new Map<string, RenderJobState>();
+
+function pruneJobs() {
+  if (jobs.size <= MAX_JOBS) return;
+  const now = Date.now();
+  for (const [id, job] of jobs) {
+    if (job.done && now - job.createdAt > JOB_TTL_MS) {
+      jobs.delete(id);
+    }
   }
->();
+}
 
 export async function POST(req: NextRequest) {
   const authResult = await requireAuth();
@@ -44,7 +57,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-  jobs.set(jobId, { progress: 0, done: false });
+  pruneJobs();
+  jobs.set(jobId, { progress: 0, done: false, createdAt: Date.now() });
 
   (async () => {
     try {
@@ -69,7 +83,9 @@ export async function POST(req: NextRequest) {
             jpegQuality: 80,
             framesPerLambda: 800,
             privacy: "public",
-            maxRetries: 1,
+            maxRetries: 2,
+            timeoutInMilliseconds: 300_000,
+            delayRenderTimeoutInMilliseconds: 90_000,
           });
           renderId = result.renderId;
           bucketName = result.bucketName;
@@ -138,7 +154,7 @@ export async function POST(req: NextRequest) {
         job.error = err instanceof Error ? err.message : String(err);
       }
     } finally {
-      setTimeout(() => jobs.delete(jobId), 10 * 60 * 1000);
+      setTimeout(() => jobs.delete(jobId), JOB_TTL_MS);
     }
   })();
 

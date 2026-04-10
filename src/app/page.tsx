@@ -15,6 +15,7 @@ import {
   Image as ImageIcon,
   Pencil,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { getProjects, deleteProject, renameProject, saveProject, MAX_PROJECTS, migrateLocalStorageToDb, type Project } from "@/lib/projectStore";
 
@@ -34,6 +35,7 @@ function formatDate(ts: number) {
 export default function Home() {
   const router = useRouter();
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [showNewModal, setShowNewModal] = useState(false);
@@ -77,6 +79,7 @@ export default function Home() {
       await migrateLocalStorageToDb();
       const all = await getProjects();
       setRecentProjects(all.slice(0, 6));
+      setLoading(false);
     })();
   }, []);
 
@@ -172,7 +175,12 @@ export default function Home() {
               )}
             </div>
 
-            {recentProjects.length === 0 ? (
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-16">
+                <Loader2 size={28} className="animate-spin text-accent mb-3" />
+                <p className="text-sm text-text-secondary">데이터를 불러오고 있습니다...</p>
+              </div>
+            ) : recentProjects.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-border rounded-2xl">
                 <FolderOpen size={40} className="text-text-secondary/30 mb-3" />
                 <p className="text-text-secondary mb-1">아직 프로젝트가 없습니다</p>
